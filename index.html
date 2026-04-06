@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Своя игра — Python</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --surface2: #1e2330;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #eef0f6;
+    --muted: #6b7280;
+    --accent: #7cffb2;
+    --accent2: #4f9eff;
+    --accent3: #ffb347;
+    --accent4: #ff6b9d;
+    --accent5: #c084fc;
+    --danger: #ff5a5a;
+    --success: #7cffb2;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Unbounded', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,255,178,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,255,178,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page { position: relative; z-index: 1; max-width: 1000px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  /* ── HEADER ── */
+  .site-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    animation: fadeDown 0.6s ease both;
+  }
+  .site-header .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+    opacity: 0.8;
+  }
+  .site-header h1 {
+    font-family: var(--display);
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #fff 30%, var(--accent) 80%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+  }
+  .site-header .sub {
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* ── SCORE BAR ── */
+  .scorebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    animation: fadeDown 0.6s 0.1s ease both;
+  }
+  .score-block { text-align: center; }
+  .score-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .score-num {
+    font-family: var(--display);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+    transition: transform 0.2s;
+  }
+  .score-num.bump { transform: scale(1.25); }
+  .progress-block { flex: 1; margin: 0 2rem; }
+  .progress-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; text-align: center; }
+  .progress-bar { height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); border-radius: 99px; transition: width 0.4s ease; width: 0%; }
+
+  /* ── BOARD ── */
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  .cat-title {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--text);
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .cat-title .cat-icon { font-size: 18px; }
+
+  .cell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-family: var(--display);
+    font-size: 1.4rem;
+    font-weight: 700;
+    transition: background 0.15s, border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .cell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.15s;
+    border-radius: inherit;
+  }
+  .cell:hover { transform: translateY(-2px); border-color: var(--border2); }
+  .cell:active { transform: translateY(0) scale(0.97); }
+
+  .cell[data-pts="100"]  { color: var(--accent);  border-left: 3px solid var(--accent); }
+  .cell[data-pts="200"]  { color: var(--accent2); border-left: 3px solid var(--accent2); }
+  .cell[data-pts="300"]  { color: var(--accent3); border-left: 3px solid var(--accent3); }
+  .cell[data-pts="400"]  { color: var(--accent4); border-left: 3px solid var(--accent4); }
+  .cell[data-pts="500"]  { color: var(--accent5); border-left: 3px solid var(--accent5); }
+  .cell[data-pts="100"]:hover  { background: rgba(124,255,178,0.08); box-shadow: 0 0 20px rgba(124,255,178,0.12); }
+  .cell[data-pts="200"]:hover  { background: rgba(79,158,255,0.08); box-shadow: 0 0 20px rgba(79,158,255,0.12); }
+  .cell[data-pts="300"]:hover  { background: rgba(255,179,71,0.08); box-shadow: 0 0 20px rgba(255,179,71,0.12); }
+  .cell[data-pts="400"]:hover  { background: rgba(255,107,157,0.08); box-shadow: 0 0 20px rgba(255,107,157,0.12); }
+  .cell[data-pts="500"]:hover  { background: rgba(192,132,252,0.08); box-shadow: 0 0 20px rgba(192,132,252,0.12); }
+
+  .cell.used {
+    background: var(--surface2);
+    color: transparent;
+    cursor: default;
+    border-color: transparent;
+    border-left-color: transparent;
+    box-shadow: none;
+    pointer-events: none;
+  }
+  .cell.used::before { content: '✓'; color: rgba(255,255,255,0.1); font-family: var(--mono); font-size: 1.2rem; font-weight: 400; }
+
+  /* ── MODAL ── */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(6px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+  .overlay.open { display: flex; animation: fadeIn 0.2s ease; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideUp 0.25s ease;
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+  .modal-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .badge {
+    font-size: 11px;
+    font-family: var(--mono);
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-transform: uppercase;
+  }
+  .badge-cat {
+    background: var(--surface2);
+    color: var(--muted);
+  }
+  .badge-pts {
+    background: rgba(124,255,178,0.12);
+    color: var(--accent);
+    border: 1px solid rgba(124,255,178,0.2);
+  }
+  .close-btn {
+    background: none;
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    width: 32px; height: 32px;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .close-btn:hover { background: var(--surface2); color: var(--text); }
+
+  .modal-q {
+    font-size: 17px;
+    font-weight: 500;
+    line-height: 1.55;
+    color: var(--text);
+    margin-bottom: 1.25rem;
+    font-family: var(--mono);
+  }
+
+  .code-block {
+    background: #0a0c10;
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #e8eaf0;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.7;
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .code-block::before {
+    content: 'python';
+    position: absolute;
+    top: 8px; right: 12px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+
+  /* syntax highlight classes */
+  .kw { color: #c084fc; }
+  .fn { color: #4f9eff; }
+  .num { color: #ffb347; }
+  .str { color: #7cffb2; }
+  .op { color: #ff6b9d; }
+  .cm { color: #555; font-style: italic; }
+
+  .options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.25rem; }
+  .opt {
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, transform 0.1s;
+    text-align: left;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .opt-letter {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .opt:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.2); transform: translateX(2px); }
+  .opt:hover .opt-letter { background: rgba(255,255,255,0.08); color: var(--text); }
+  .opt.correct { background: rgba(124,255,178,0.08); border-color: rgba(124,255,178,0.4); }
+  .opt.correct .opt-letter { background: var(--accent); color: #000; border-color: var(--accent); }
+  .opt.wrong { background: rgba(255,90,90,0.08); border-color: rgba(255,90,90,0.35); }
+  .opt.wrong .opt-letter { background: var(--danger); color: #fff; border-color: var(--danger); }
+  .opt.disabled { cursor: default; transform: none; }
+  .opt.disabled:hover { background: inherit; }
+
+  .explain-box {
+    display: none;
+    background: rgba(124,255,178,0.05);
+    border: 1px solid rgba(124,255,178,0.15);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #a3e9c4;
+    margin-bottom: 1.25rem;
+  }
+  .explain-box.show { display: block; animation: fadeIn 0.3s ease; }
+  .explain-box strong { color: var(--accent); font-weight: 700; }
+
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 10px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s, opacity 0.15s;
+    letter-spacing: 0.5px;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+  }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+  .btn-confirm {
+    background: var(--accent);
+    border: none;
+    color: #0a0c10;
+    display: none;
+  }
+  .btn-confirm:hover { opacity: 0.85; }
+  .btn-confirm.wrong-mode { background: var(--surface2); color: var(--muted); border: 1px solid var(--border2); }
+
+  /* ── RESULT SCREEN ── */
+  .result-screen {
+    display: none;
+    text-align: center;
+    padding: 4rem 2rem;
+    animation: fadeUp 0.5s ease;
+  }
+  .result-screen.show { display: block; }
+  .result-icon { font-size: 4rem; margin-bottom: 1rem; }
+  .result-screen h2 {
+    font-family: var(--display);
+    font-size: 2rem;
+    font-weight: 900;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, #fff, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .result-final {
+    font-family: var(--display);
+    font-size: 4rem;
+    font-weight: 900;
+    color: var(--accent);
+    margin: 1.5rem 0 0.5rem;
+  }
+  .result-msg { font-size: 14px; color: var(--muted); margin-bottom: 2.5rem; line-height: 1.6; }
+  .result-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    max-width: 420px;
+    margin: 0 auto 2.5rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 1rem;
+  }
+  .stat-card .sl { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .stat-card .sv { font-family: var(--display); font-size: 1.6rem; font-weight: 700; color: var(--text); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeDown { from { opacity:0; transform: translateY(-16px); } to { opacity:1; transform: none; } }
+  @keyframes fadeUp   { from { opacity:0; transform: translateY(16px);  } to { opacity:1; transform: none; } }
+  @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+  @keyframes slideUp  { from { opacity:0; transform: translateY(24px) scale(0.97); } to { opacity:1; transform: none; } }
+  @keyframes pop      { 0%{transform:scale(1)} 50%{transform:scale(1.3)} 100%{transform:scale(1)} }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">
+    <div class="eyebrow">интерактивное повторение</div>
+    <h1>Своя Игра</h1>
+    <div class="sub">comprehension &nbsp;·&nbsp; lambda &nbsp;·&nbsp; основы python</div>
+  </header>
+
+  <div class="scorebar">
+    <div class="score-block">
+      <div class="score-label">Счёт</div>
+      <div class="score-num" id="score">0</div>
+    </div>
+    <div class="progress-block">
+      <div class="progress-label" id="progress-label">0 из 15 вопросов</div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
+    <div class="score-block">
+      <div class="score-label">Верных</div>
+      <div class="score-num" id="correct-count" style="color:#fff">0</div>
+    </div>
+  </div>
+
+  <div class="board" id="board"></div>
+  <div class="result-screen" id="result"></div>
+
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-meta">
+        <span class="badge badge-cat" id="m-cat">—</span>
+        <span class="badge badge-pts" id="m-pts">100</span>
+      </div>
+      <button class="close-btn" onclick="closeModal()" title="Закрыть">✕</button>
+    </div>
+    <div class="modal-q" id="m-q"></div>
+    <div class="code-block" id="m-code" style="display:none"></div>
+    <div class="options" id="m-opts"></div>
+    <div class="explain-box" id="m-explain"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Закрыть</button>
+      <button class="btn btn-confirm" id="m-confirm" onclick="confirmAnswer()">Засчитать</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CATS = [
+  { name: "Основы Python", icon: "⚙️" },
+  { name: "List Comprehension", icon: "📋" },
+  { name: "Lambda-функции", icon: "λ" },
+];
+
+const Q = [
+  // === Основы Python ===
+  [
+    {
+      pts: 100,
+      q: "Что выведет этот код?",
+      code: `x = [1, 2, 3]\nprint(len(x))`,
+      opts: ["1", "3", "[1, 2, 3]", "None"],
+      ans: 1,
+      explain: "<strong>len()</strong> возвращает количество элементов. В списке [1, 2, 3] три элемента → выведет <strong>3</strong>."
+    },
+    {
+      pts: 200,
+      q: "Что такое изменяемый (mutable) тип данных?",
+      code: null,
+      opts: [
+        "Тот, значение которого нельзя изменить",
+        "Тот, значение которого можно изменить после создания",
+        "Любой числовой тип",
+        "Тип, созданный через class"
+      ],
+      ans: 1,
+      explain: "<strong>Изменяемые (mutable):</strong> list, dict, set — их можно менять на месте. <strong>Неизменяемые (immutable):</strong> int, str, tuple — создаётся новый объект при «изменении»."
+    },
+    {
+      pts: 300,
+      q: "Что выведет код?",
+      code: `def greet(name, greeting="Привет"):\n    return f"{greeting}, {name}!"\n\nprint(greet("Маша"))`,
+      opts: ["Привет, Маша!", "None", "Ошибка: нет аргумента greeting", "greeting, Маша!"],
+      ans: 0,
+      explain: "<strong>Параметр со значением по умолчанию</strong>: если greeting не передан, используется \"Привет\". Вывод: <strong>Привет, Маша!</strong>"
+    },
+    {
+      pts: 400,
+      q: "Чем list отличается от tuple?",
+      code: null,
+      opts: [
+        "Ничем, это синонимы",
+        "list изменяем, tuple — неизменяемый",
+        "tuple хранит только строки",
+        "list быстрее при любых операциях"
+      ],
+      ans: 1,
+      explain: "<strong>list []</strong> — mutable (изменяемый): можно добавлять, удалять элементы. <strong>tuple ()</strong> — immutable (неизменяемый): структура фиксирована после создания."
+    },
+    {
+      pts: 500,
+      q: "Что выведет код? (Важно!)",
+      code: `a = [1, 2, 3]\nb = a\nb.append(4)\nprint(a)`,
+      opts: ["[1, 2, 3]", "[1, 2, 3, 4]", "Ошибка", "[4]"],
+      ans: 1,
+      explain: "<strong>b = a</strong> — это не копия, а ещё одна ссылка на тот же объект в памяти. Изменение через b меняет и a. Чтобы скопировать: <strong>b = a.copy()</strong> или <strong>b = a[:]</strong>"
+    },
+  ],
+  // === List Comprehension ===
+  [
+    {
+      pts: 100,
+      q: "Что вернёт этот comprehension?",
+      code: `[x * 2 for x in range(5)]`,
+      opts: ["[0, 1, 2, 3, 4]", "[0, 2, 4, 6, 8]", "[2, 4, 6, 8, 10]", "Ошибка"],
+      ans: 1,
+      explain: "<strong>range(5)</strong> → 0, 1, 2, 3, 4. Каждый умножается на 2 → <strong>[0, 2, 4, 6, 8]</strong>"
+    },
+    {
+      pts: 200,
+      q: "Как записать comprehension, который оставит только чётные числа от 1 до 10?",
+      code: null,
+      opts: [
+        "[x for x in range(10) if x % 2]",
+        "[x for x in range(1, 11) if x % 2 == 0]",
+        "[x * 2 for x in range(5)]",
+        "[even(x) for x in range(10)]"
+      ],
+      ans: 1,
+      explain: "<strong>range(1, 11)</strong> даёт числа 1..10. Условие <strong>if x % 2 == 0</strong> пропускает только чётные числа → [2, 4, 6, 8, 10]"
+    },
+    {
+      pts: 300,
+      q: "Что выведет код?",
+      code: `words = ['hi', 'hello', 'hey']\nresult = [w.upper() for w in words if len(w) > 2]\nprint(result)`,
+      opts: ["['HI', 'HELLO', 'HEY']", "['HELLO', 'HEY']", "['hello', 'hey']", "Ошибка"],
+      ans: 1,
+      explain: "Фильтр <strong>len(w) > 2</strong> исключает 'hi' (длина 2). Остаются 'hello' и 'hey', к которым применяется <strong>.upper()</strong> → <strong>['HELLO', 'HEY']</strong>"
+    },
+    {
+      pts: 400,
+      q: "Как создать словарь {0: 'a', 1: 'b', 2: 'c'} через dict comprehension?",
+      code: null,
+      opts: [
+        "{i: c for i, c in enumerate('abc')}",
+        "{i: c for c in 'abc'}",
+        "[i: c for i, c in 'abc']",
+        "{enumerate('abc')}"
+      ],
+      ans: 0,
+      explain: "<strong>enumerate('abc')</strong> генерирует пары: (0,'a'), (1,'b'), (2,'c'). <strong>Dict comprehension</strong> {k: v for k, v in ...} собирает их в словарь."
+    },
+    {
+      pts: 500,
+      q: "Что выведет код?",
+      code: `matrix = [[1, 2, 3], [4, 5, 6]]\nflat = [n for row in matrix for n in row]\nprint(flat)`,
+      opts: ["[[1,2,3],[4,5,6]]", "[1, 2, 3, 4, 5, 6]", "Ошибка", "[(1,2,3),(4,5,6)]"],
+      ans: 1,
+      explain: "<strong>Вложенный comprehension</strong>: сначала итерируемся по строкам матрицы, затем по элементам каждой строки. Это «расплющивает» матрицу в плоский список: <strong>[1, 2, 3, 4, 5, 6]</strong>"
+    },
+  ],
+  // === Lambda ===
+  [
+    {
+      pts: 100,
+      q: "Что такое lambda-функция в Python?",
+      code: null,
+      opts: [
+        "Именованная функция с ключевым словом return",
+        "Анонимная функция в одну строку",
+        "Функция без аргументов",
+        "Встроенная функция Python"
+      ],
+      ans: 1,
+      explain: "<strong>lambda</strong> — анонимная функция: <strong>lambda аргументы: выражение</strong>. Эквивалент def, но без имени. Результат выражения возвращается автоматически."
+    },
+    {
+      pts: 200,
+      q: "Что вернёт код?",
+      code: `f = lambda x, y: x ** y\nprint(f(2, 3))`,
+      opts: ["5", "6", "8", "Ошибка"],
+      ans: 2,
+      explain: "<strong>x ** y</strong> — возведение в степень. f(2, 3) → 2³ = <strong>8</strong>"
+    },
+    {
+      pts: 300,
+      q: "Как отсортировать список по длине строк с помощью sorted()?",
+      code: `words = ['banana', 'fig', 'apple']`,
+      opts: [
+        "sorted(words)",
+        "sorted(words, key=len)",
+        "words.sort(lambda x: len(x))",
+        "sorted(words, key=lambda x: x)"
+      ],
+      ans: 1,
+      explain: "<strong>key=len</strong> передаёт функцию len как критерий: каждый элемент «оценивается» своей длиной. Результат: <strong>['fig', 'apple', 'banana']</strong>"
+    },
+    {
+      pts: 400,
+      q: "Что выведет код?",
+      code: `nums = [3, -1, 4, -1, 5, -9]\nresult = list(filter(lambda x: x > 0, nums))\nprint(result)`,
+      opts: ["[3, 4, 5]", "[3, -1, 4, -1, 5, -9]", "[-1, -1, -9]", "Ошибка"],
+      ans: 0,
+      explain: "<strong>filter(func, iterable)</strong> оставляет только элементы, для которых func возвращает True. Lambda <strong>x > 0</strong> отбирает положительные → <strong>[3, 4, 5]</strong>"
+    },
+    {
+      pts: 500,
+      q: "Что выведет код?",
+      code: `pairs = [(1, 'b'), (3, 'a'), (2, 'c')]\ns = sorted(pairs, key=lambda p: p[1])\nprint(s)`,
+      opts: [
+        "[(1,'b'), (2,'c'), (3,'a')]",
+        "[(3,'a'), (1,'b'), (2,'c')]",
+        "[(1,'b'), (3,'a'), (2,'c')]",
+        "Ошибка"
+      ],
+      ans: 1,
+      explain: "Сортировка по <strong>второму элементу пары (p[1])</strong>: 'a' < 'b' < 'c'. Поэтому порядок кортежей: <strong>[(3,'a'), (1,'b'), (2,'c')]</strong>"
+    },
+  ],
+];
+
+// ─── State ───────────────────────────────────────
+let score = 0, correctCount = 0, totalAnswered = 0;
+let current = null, picked = null;
+
+const LETTERS = ['A', 'B', 'C', 'D'];
+
+// ─── Render board ────────────────────────────────
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  CATS.forEach(cat => {
+    const h = document.createElement('div');
+    h.className = 'cat-title';
+    h.innerHTML = `<span class="cat-icon">${cat.icon}</span>${cat.name}`;
+    board.appendChild(h);
+  });
+
+  for (let qi = 0; qi < 5; qi++) {
+    CATS.forEach((cat, ci) => {
+      const q = Q[ci][qi];
+      const cell = document.createElement('div');
+      cell.className = 'cell' + (q.used ? ' used' : '');
+      cell.setAttribute('data-pts', q.pts);
+      if (!q.used) {
+        cell.textContent = q.pts;
+        cell.onclick = () => openModal(ci, qi);
+      }
+      board.appendChild(cell);
+    });
+  }
+}
+
+// ─── Modal ───────────────────────────────────────
+function openModal(ci, qi) {
+  current = { ci, qi };
+  picked = null;
+  const q = Q[ci][qi];
+
+  document.getElementById('m-cat').textContent = CATS[ci].name;
+  document.getElementById('m-pts').textContent = '+' + q.pts + ' очков';
+  document.getElementById('m-q').textContent = q.q;
+
+  const codeEl = document.getElementById('m-code');
+  if (q.code) {
+    codeEl.style.display = 'block';
+    codeEl.textContent = q.code;
+  } else {
+    codeEl.style.display = 'none';
+  }
+
+  const optsEl = document.getElementById('m-opts');
+  optsEl.innerHTML = '';
+  q.opts.forEach((o, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'opt';
+    btn.innerHTML = `<span class="opt-letter">${LETTERS[i]}</span>${o}`;
+    btn.onclick = () => selectOpt(i);
+    optsEl.appendChild(btn);
+  });
+
+  const explain = document.getElementById('m-explain');
+  explain.classList.remove('show');
+  explain.innerHTML = '';
+
+  const confirmBtn = document.getElementById('m-confirm');
+  confirmBtn.style.display = 'none';
+  confirmBtn.className = 'btn btn-confirm';
+  confirmBtn.textContent = 'Засчитать';
+
+  document.getElementById('overlay').classList.add('open');
+}
+
+function selectOpt(i) {
+  if (picked !== null) return;
+  picked = i;
+  const q = Q[current.ci][current.qi];
+  const opts = document.querySelectorAll('.opt');
+
+  opts.forEach((el, idx) => {
+    el.classList.add('disabled');
+    if (idx === q.ans) el.classList.add('correct');
+    else if (idx === i && i !== q.ans) el.classList.add('wrong');
+  });
+
+  const explain = document.getElementById('m-explain');
+  explain.innerHTML = q.explain;
+  explain.classList.add('show');
+
+  const isCorrect = (i === q.ans);
+  const confirmBtn = document.getElementById('m-confirm');
+  confirmBtn.style.display = 'block';
+  if (isCorrect) {
+    confirmBtn.textContent = `Засчитать +${q.pts}`;
+    confirmBtn.className = 'btn btn-confirm';
+  } else {
+    confirmBtn.textContent = 'Закрыть без очков';
+    confirmBtn.className = 'btn btn-confirm wrong-mode';
+  }
+}
+
+function confirmAnswer() {
+  const q = Q[current.ci][current.qi];
+  const isCorrect = (picked === q.ans);
+  if (isCorrect) {
+    score += q.pts;
+    correctCount++;
+    animateScore();
+  }
+  q.used = true;
+  totalAnswered++;
+  updateStats();
+  closeModal();
+  renderBoard();
+  if (totalAnswered === 15) setTimeout(showResult, 400);
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.remove('open');
+  current = null;
+}
+
+// ─── Stats ───────────────────────────────────────
+function updateStats() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('correct-count').textContent = correctCount;
+  document.getElementById('progress-label').textContent = totalAnswered + ' из 15 вопросов';
+  document.getElementById('progress-fill').style.width = (totalAnswered / 15 * 100) + '%';
+}
+
+function animateScore() {
+  const el = document.getElementById('score');
+  el.classList.add('bump');
+  setTimeout(() => el.classList.remove('bump'), 350);
+}
+
+// ─── Result ──────────────────────────────────────
+function showResult() {
+  document.getElementById('board').style.display = 'none';
+  document.querySelector('.scorebar').style.display = 'none';
+
+  const pct = correctCount / 15;
+  const emoji = pct >= 0.8 ? '🏆' : pct >= 0.6 ? '🎯' : pct >= 0.4 ? '💡' : '📚';
+  const msg = pct >= 0.8
+    ? 'Отличная работа! Материал освоен на отлично.'
+    : pct >= 0.6
+    ? 'Хороший результат! Пара тем требует повторения.'
+    : pct >= 0.4
+    ? 'Неплохо, но стоит ещё раз пройти материал.'
+    : 'Рекомендуем повторить все три темы.';
+
+  const result = document.getElementById('result');
+  result.innerHTML = `
+    <div class="result-icon">${emoji}</div>
+    <h2>Игра окончена!</h2>
+    <div class="result-final">${score} очков</div>
+    <div class="result-msg">${msg}</div>
+    <div class="result-stats">
+      <div class="stat-card"><div class="sl">Правильно</div><div class="sv">${correctCount} / 15</div></div>
+      <div class="stat-card"><div class="sl">Точность</div><div class="sv">${Math.round(pct*100)}%</div></div>
+      <div class="stat-card"><div class="sl">Макс. балл</div><div class="sv">4500</div></div>
+    </div>
+    <button class="btn btn-confirm" style="font-size:14px;padding:12px 28px;" onclick="resetGame()">Сыграть снова</button>
+  `;
+  result.classList.add('show');
+}
+
+function resetGame() {
+  score = 0; correctCount = 0; totalAnswered = 0;
+  Q.forEach(cat => cat.forEach(q => delete q.used));
+  updateStats();
+  document.getElementById('board').style.display = 'grid';
+  document.querySelector('.scorebar').style.display = 'flex';
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('result').innerHTML = '';
+  renderBoard();
+}
+
+// ─── Init ─────────────────────────────────────────
+renderBoard();
+</script>
+</body>
+</html>
