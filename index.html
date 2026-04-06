@@ -1,838 +1,1738 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Своя игра — Python</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #0d0f14;
-    --surface: #161920;
-    --surface2: #1e2330;
-    --border: rgba(255,255,255,0.07);
-    --border2: rgba(255,255,255,0.13);
-    --text: #eef0f6;
-    --muted: #6b7280;
-    --accent: #7cffb2;
-    --accent2: #4f9eff;
-    --accent3: #ffb347;
-    --accent4: #ff6b9d;
-    --accent5: #c084fc;
-    --danger: #ff5a5a;
-    --success: #7cffb2;
-    --mono: 'JetBrains Mono', monospace;
-    --display: 'Unbounded', sans-serif;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--mono);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* animated grid background */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(124,255,178,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(124,255,178,0.03) 1px, transparent 1px);
-    background-size: 48px 48px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .page { position: relative; z-index: 1; max-width: 1000px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
-
-  /* ── HEADER ── */
-  .site-header {
-    text-align: center;
-    margin-bottom: 3rem;
-    animation: fadeDown 0.6s ease both;
-  }
-  .site-header .eyebrow {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 0.75rem;
-    opacity: 0.8;
-  }
-  .site-header h1 {
-    font-family: var(--display);
-    font-size: clamp(2rem, 6vw, 3.5rem);
-    font-weight: 900;
-    line-height: 1;
-    letter-spacing: -1px;
-    background: linear-gradient(135deg, #fff 30%, var(--accent) 80%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 0.5rem;
-  }
-  .site-header .sub {
-    font-size: 13px;
-    color: var(--muted);
-    letter-spacing: 1px;
-  }
-
-  /* ── SCORE BAR ── */
-  .scorebar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: 12px;
-    padding: 1rem 1.5rem;
-    margin-bottom: 2rem;
-    animation: fadeDown 0.6s 0.1s ease both;
-  }
-  .score-block { text-align: center; }
-  .score-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-  .score-num {
-    font-family: var(--display);
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--accent);
-    transition: transform 0.2s;
-  }
-  .score-num.bump { transform: scale(1.25); }
-  .progress-block { flex: 1; margin: 0 2rem; }
-  .progress-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; text-align: center; }
-  .progress-bar { height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
-  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); border-radius: 99px; transition: width 0.4s ease; width: 0%; }
-
-  /* ── BOARD ── */
-  .board {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    animation: fadeUp 0.6s 0.2s ease both;
-  }
-
-  .cat-title {
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: 12px;
-    padding: 1rem;
-    text-align: center;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    color: var(--text);
-    min-height: 60px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-  }
-  .cat-title .cat-icon { font-size: 18px; }
-
-  .cell {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    height: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-family: var(--display);
-    font-size: 1.4rem;
-    font-weight: 700;
-    transition: background 0.15s, border-color 0.15s, transform 0.12s, box-shadow 0.15s;
-    position: relative;
-    overflow: hidden;
-  }
-  .cell::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: currentColor;
-    opacity: 0;
-    transition: opacity 0.15s;
-    border-radius: inherit;
-  }
-  .cell:hover { transform: translateY(-2px); border-color: var(--border2); }
-  .cell:active { transform: translateY(0) scale(0.97); }
-
-  .cell[data-pts="100"]  { color: var(--accent);  border-left: 3px solid var(--accent); }
-  .cell[data-pts="200"]  { color: var(--accent2); border-left: 3px solid var(--accent2); }
-  .cell[data-pts="300"]  { color: var(--accent3); border-left: 3px solid var(--accent3); }
-  .cell[data-pts="400"]  { color: var(--accent4); border-left: 3px solid var(--accent4); }
-  .cell[data-pts="500"]  { color: var(--accent5); border-left: 3px solid var(--accent5); }
-  .cell[data-pts="100"]:hover  { background: rgba(124,255,178,0.08); box-shadow: 0 0 20px rgba(124,255,178,0.12); }
-  .cell[data-pts="200"]:hover  { background: rgba(79,158,255,0.08); box-shadow: 0 0 20px rgba(79,158,255,0.12); }
-  .cell[data-pts="300"]:hover  { background: rgba(255,179,71,0.08); box-shadow: 0 0 20px rgba(255,179,71,0.12); }
-  .cell[data-pts="400"]:hover  { background: rgba(255,107,157,0.08); box-shadow: 0 0 20px rgba(255,107,157,0.12); }
-  .cell[data-pts="500"]:hover  { background: rgba(192,132,252,0.08); box-shadow: 0 0 20px rgba(192,132,252,0.12); }
-
-  .cell.used {
-    background: var(--surface2);
-    color: transparent;
-    cursor: default;
-    border-color: transparent;
-    border-left-color: transparent;
-    box-shadow: none;
-    pointer-events: none;
-  }
-  .cell.used::before { content: '✓'; color: rgba(255,255,255,0.1); font-family: var(--mono); font-size: 1.2rem; font-weight: 400; }
-
-  /* ── MODAL ── */
-  .overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.75);
-    backdrop-filter: blur(6px);
-    z-index: 200;
-    align-items: center;
-    justify-content: center;
-    padding: 1.5rem;
-  }
-  .overlay.open { display: flex; animation: fadeIn 0.2s ease; }
-
-  .modal {
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: 20px;
-    padding: 2rem;
-    width: 100%;
-    max-width: 600px;
-    max-height: 90vh;
-    overflow-y: auto;
-    animation: slideUp 0.25s ease;
-  }
-
-  .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.5rem;
-  }
-  .modal-meta {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .badge {
-    font-size: 11px;
-    font-family: var(--mono);
-    font-weight: 700;
-    letter-spacing: 1px;
-    padding: 4px 10px;
-    border-radius: 6px;
-    text-transform: uppercase;
-  }
-  .badge-cat {
-    background: var(--surface2);
-    color: var(--muted);
-  }
-  .badge-pts {
-    background: rgba(124,255,178,0.12);
-    color: var(--accent);
-    border: 1px solid rgba(124,255,178,0.2);
-  }
-  .close-btn {
-    background: none;
-    border: 1px solid var(--border2);
-    border-radius: 8px;
-    width: 32px; height: 32px;
-    cursor: pointer;
-    color: var(--muted);
-    font-size: 16px;
-    display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s, color 0.15s;
-  }
-  .close-btn:hover { background: var(--surface2); color: var(--text); }
-
-  .modal-q {
-    font-size: 17px;
-    font-weight: 500;
-    line-height: 1.55;
-    color: var(--text);
-    margin-bottom: 1.25rem;
-    font-family: var(--mono);
-  }
-
-  .code-block {
-    background: #0a0c10;
-    border: 1px solid var(--border2);
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
-    font-family: var(--mono);
-    font-size: 13px;
-    color: #e8eaf0;
-    white-space: pre;
-    overflow-x: auto;
-    line-height: 1.7;
-    margin-bottom: 1.5rem;
-    position: relative;
-  }
-  .code-block::before {
-    content: 'python';
-    position: absolute;
-    top: 8px; right: 12px;
-    font-size: 10px;
-    letter-spacing: 1px;
-    color: var(--muted);
-  }
-
-  /* syntax highlight classes */
-  .kw { color: #c084fc; }
-  .fn { color: #4f9eff; }
-  .num { color: #ffb347; }
-  .str { color: #7cffb2; }
-  .op { color: #ff6b9d; }
-  .cm { color: #555; font-style: italic; }
-
-  .options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.25rem; }
-  .opt {
-    border: 1px solid var(--border2);
-    border-radius: 10px;
-    padding: 0.75rem 1rem;
-    font-size: 13px;
-    font-family: var(--mono);
-    color: var(--text);
-    cursor: pointer;
-    transition: background 0.12s, border-color 0.12s, transform 0.1s;
-    text-align: left;
-    background: var(--surface2);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .opt-letter {
-    width: 22px; height: 22px;
-    border-radius: 6px;
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--muted);
-    flex-shrink: 0;
-    transition: background 0.12s, color 0.12s, border-color 0.12s;
-  }
-  .opt:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.2); transform: translateX(2px); }
-  .opt:hover .opt-letter { background: rgba(255,255,255,0.08); color: var(--text); }
-  .opt.correct { background: rgba(124,255,178,0.08); border-color: rgba(124,255,178,0.4); }
-  .opt.correct .opt-letter { background: var(--accent); color: #000; border-color: var(--accent); }
-  .opt.wrong { background: rgba(255,90,90,0.08); border-color: rgba(255,90,90,0.35); }
-  .opt.wrong .opt-letter { background: var(--danger); color: #fff; border-color: var(--danger); }
-  .opt.disabled { cursor: default; transform: none; }
-  .opt.disabled:hover { background: inherit; }
-
-  .explain-box {
-    display: none;
-    background: rgba(124,255,178,0.05);
-    border: 1px solid rgba(124,255,178,0.15);
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
-    font-size: 13px;
-    line-height: 1.7;
-    color: #a3e9c4;
-    margin-bottom: 1.25rem;
-  }
-  .explain-box.show { display: block; animation: fadeIn 0.3s ease; }
-  .explain-box strong { color: var(--accent); font-weight: 700; }
-
-  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; }
-  .btn {
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 700;
-    padding: 10px 22px;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: background 0.15s, transform 0.1s, opacity 0.15s;
-    letter-spacing: 0.5px;
-  }
-  .btn:active { transform: scale(0.97); }
-  .btn-ghost {
-    background: transparent;
-    border: 1px solid var(--border2);
-    color: var(--muted);
-  }
-  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
-  .btn-confirm {
-    background: var(--accent);
-    border: none;
-    color: #0a0c10;
-    display: none;
-  }
-  .btn-confirm:hover { opacity: 0.85; }
-  .btn-confirm.wrong-mode { background: var(--surface2); color: var(--muted); border: 1px solid var(--border2); }
-
-  /* ── RESULT SCREEN ── */
-  .result-screen {
-    display: none;
-    text-align: center;
-    padding: 4rem 2rem;
-    animation: fadeUp 0.5s ease;
-  }
-  .result-screen.show { display: block; }
-  .result-icon { font-size: 4rem; margin-bottom: 1rem; }
-  .result-screen h2 {
-    font-family: var(--display);
-    font-size: 2rem;
-    font-weight: 900;
-    margin-bottom: 0.5rem;
-    background: linear-gradient(135deg, #fff, var(--accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .result-final {
-    font-family: var(--display);
-    font-size: 4rem;
-    font-weight: 900;
-    color: var(--accent);
-    margin: 1.5rem 0 0.5rem;
-  }
-  .result-msg { font-size: 14px; color: var(--muted); margin-bottom: 2.5rem; line-height: 1.6; }
-  .result-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    max-width: 420px;
-    margin: 0 auto 2.5rem;
-  }
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: 12px;
-    padding: 1rem;
-  }
-  .stat-card .sl { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-  .stat-card .sv { font-family: var(--display); font-size: 1.6rem; font-weight: 700; color: var(--text); }
-
-  /* ── ANIMATIONS ── */
-  @keyframes fadeDown { from { opacity:0; transform: translateY(-16px); } to { opacity:1; transform: none; } }
-  @keyframes fadeUp   { from { opacity:0; transform: translateY(16px);  } to { opacity:1; transform: none; } }
-  @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
-  @keyframes slideUp  { from { opacity:0; transform: translateY(24px) scale(0.97); } to { opacity:1; transform: none; } }
-  @keyframes pop      { 0%{transform:scale(1)} 50%{transform:scale(1.3)} 100%{transform:scale(1)} }
-
-  /* scrollbar */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-</style>
-</head>
-<body>
-<div class="page">
-
-  <header class="site-header">
-    <div class="eyebrow">интерактивное повторение</div>
-    <h1>Своя Игра</h1>
-    <div class="sub">comprehension &nbsp;·&nbsp; lambda &nbsp;·&nbsp; основы python</div>
-  </header>
-
-  <div class="scorebar">
-    <div class="score-block">
-      <div class="score-label">Счёт</div>
-      <div class="score-num" id="score">0</div>
-    </div>
-    <div class="progress-block">
-      <div class="progress-label" id="progress-label">0 из 15 вопросов</div>
-      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-    </div>
-    <div class="score-block">
-      <div class="score-label">Верных</div>
-      <div class="score-num" id="correct-count" style="color:#fff">0</div>
-    </div>
-  </div>
-
-  <div class="board" id="board"></div>
-  <div class="result-screen" id="result"></div>
-
-</div>
-
-<!-- MODAL -->
-<div class="overlay" id="overlay">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-meta">
-        <span class="badge badge-cat" id="m-cat">—</span>
-        <span class="badge badge-pts" id="m-pts">100</span>
-      </div>
-      <button class="close-btn" onclick="closeModal()" title="Закрыть">✕</button>
-    </div>
-    <div class="modal-q" id="m-q"></div>
-    <div class="code-block" id="m-code" style="display:none"></div>
-    <div class="options" id="m-opts"></div>
-    <div class="explain-box" id="m-explain"></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal()">Закрыть</button>
-      <button class="btn btn-confirm" id="m-confirm" onclick="confirmAnswer()">Засчитать</button>
-    </div>
-  </div>
-</div>
-
-<script>
-const CATS = [
-  { name: "Основы Python", icon: "⚙️" },
-  { name: "List Comprehension", icon: "📋" },
-  { name: "Lambda-функции", icon: "λ" },
-];
-
-const Q = [
-  // === Основы Python ===
-  [
-    {
-      pts: 100,
-      q: "Что выведет этот код?",
-      code: `x = [1, 2, 3]\nprint(len(x))`,
-      opts: ["1", "3", "[1, 2, 3]", "None"],
-      ans: 1,
-      explain: "<strong>len()</strong> возвращает количество элементов. В списке [1, 2, 3] три элемента → выведет <strong>3</strong>."
-    },
-    {
-      pts: 200,
-      q: "Что такое изменяемый (mutable) тип данных?",
-      code: null,
-      opts: [
-        "Тот, значение которого нельзя изменить",
-        "Тот, значение которого можно изменить после создания",
-        "Любой числовой тип",
-        "Тип, созданный через class"
-      ],
-      ans: 1,
-      explain: "<strong>Изменяемые (mutable):</strong> list, dict, set — их можно менять на месте. <strong>Неизменяемые (immutable):</strong> int, str, tuple — создаётся новый объект при «изменении»."
-    },
-    {
-      pts: 300,
-      q: "Что выведет код?",
-      code: `def greet(name, greeting="Привет"):\n    return f"{greeting}, {name}!"\n\nprint(greet("Маша"))`,
-      opts: ["Привет, Маша!", "None", "Ошибка: нет аргумента greeting", "greeting, Маша!"],
-      ans: 0,
-      explain: "<strong>Параметр со значением по умолчанию</strong>: если greeting не передан, используется \"Привет\". Вывод: <strong>Привет, Маша!</strong>"
-    },
-    {
-      pts: 400,
-      q: "Чем list отличается от tuple?",
-      code: null,
-      opts: [
-        "Ничем, это синонимы",
-        "list изменяем, tuple — неизменяемый",
-        "tuple хранит только строки",
-        "list быстрее при любых операциях"
-      ],
-      ans: 1,
-      explain: "<strong>list []</strong> — mutable (изменяемый): можно добавлять, удалять элементы. <strong>tuple ()</strong> — immutable (неизменяемый): структура фиксирована после создания."
-    },
-    {
-      pts: 500,
-      q: "Что выведет код? (Важно!)",
-      code: `a = [1, 2, 3]\nb = a\nb.append(4)\nprint(a)`,
-      opts: ["[1, 2, 3]", "[1, 2, 3, 4]", "Ошибка", "[4]"],
-      ans: 1,
-      explain: "<strong>b = a</strong> — это не копия, а ещё одна ссылка на тот же объект в памяти. Изменение через b меняет и a. Чтобы скопировать: <strong>b = a.copy()</strong> или <strong>b = a[:]</strong>"
-    },
-  ],
-  // === List Comprehension ===
-  [
-    {
-      pts: 100,
-      q: "Что вернёт этот comprehension?",
-      code: `[x * 2 for x in range(5)]`,
-      opts: ["[0, 1, 2, 3, 4]", "[0, 2, 4, 6, 8]", "[2, 4, 6, 8, 10]", "Ошибка"],
-      ans: 1,
-      explain: "<strong>range(5)</strong> → 0, 1, 2, 3, 4. Каждый умножается на 2 → <strong>[0, 2, 4, 6, 8]</strong>"
-    },
-    {
-      pts: 200,
-      q: "Как записать comprehension, который оставит только чётные числа от 1 до 10?",
-      code: null,
-      opts: [
-        "[x for x in range(10) if x % 2]",
-        "[x for x in range(1, 11) if x % 2 == 0]",
-        "[x * 2 for x in range(5)]",
-        "[even(x) for x in range(10)]"
-      ],
-      ans: 1,
-      explain: "<strong>range(1, 11)</strong> даёт числа 1..10. Условие <strong>if x % 2 == 0</strong> пропускает только чётные числа → [2, 4, 6, 8, 10]"
-    },
-    {
-      pts: 300,
-      q: "Что выведет код?",
-      code: `words = ['hi', 'hello', 'hey']\nresult = [w.upper() for w in words if len(w) > 2]\nprint(result)`,
-      opts: ["['HI', 'HELLO', 'HEY']", "['HELLO', 'HEY']", "['hello', 'hey']", "Ошибка"],
-      ans: 1,
-      explain: "Фильтр <strong>len(w) > 2</strong> исключает 'hi' (длина 2). Остаются 'hello' и 'hey', к которым применяется <strong>.upper()</strong> → <strong>['HELLO', 'HEY']</strong>"
-    },
-    {
-      pts: 400,
-      q: "Как создать словарь {0: 'a', 1: 'b', 2: 'c'} через dict comprehension?",
-      code: null,
-      opts: [
-        "{i: c for i, c in enumerate('abc')}",
-        "{i: c for c in 'abc'}",
-        "[i: c for i, c in 'abc']",
-        "{enumerate('abc')}"
-      ],
-      ans: 0,
-      explain: "<strong>enumerate('abc')</strong> генерирует пары: (0,'a'), (1,'b'), (2,'c'). <strong>Dict comprehension</strong> {k: v for k, v in ...} собирает их в словарь."
-    },
-    {
-      pts: 500,
-      q: "Что выведет код?",
-      code: `matrix = [[1, 2, 3], [4, 5, 6]]\nflat = [n for row in matrix for n in row]\nprint(flat)`,
-      opts: ["[[1,2,3],[4,5,6]]", "[1, 2, 3, 4, 5, 6]", "Ошибка", "[(1,2,3),(4,5,6)]"],
-      ans: 1,
-      explain: "<strong>Вложенный comprehension</strong>: сначала итерируемся по строкам матрицы, затем по элементам каждой строки. Это «расплющивает» матрицу в плоский список: <strong>[1, 2, 3, 4, 5, 6]</strong>"
-    },
-  ],
-  // === Lambda ===
-  [
-    {
-      pts: 100,
-      q: "Что такое lambda-функция в Python?",
-      code: null,
-      opts: [
-        "Именованная функция с ключевым словом return",
-        "Анонимная функция в одну строку",
-        "Функция без аргументов",
-        "Встроенная функция Python"
-      ],
-      ans: 1,
-      explain: "<strong>lambda</strong> — анонимная функция: <strong>lambda аргументы: выражение</strong>. Эквивалент def, но без имени. Результат выражения возвращается автоматически."
-    },
-    {
-      pts: 200,
-      q: "Что вернёт код?",
-      code: `f = lambda x, y: x ** y\nprint(f(2, 3))`,
-      opts: ["5", "6", "8", "Ошибка"],
-      ans: 2,
-      explain: "<strong>x ** y</strong> — возведение в степень. f(2, 3) → 2³ = <strong>8</strong>"
-    },
-    {
-      pts: 300,
-      q: "Как отсортировать список по длине строк с помощью sorted()?",
-      code: `words = ['banana', 'fig', 'apple']`,
-      opts: [
-        "sorted(words)",
-        "sorted(words, key=len)",
-        "words.sort(lambda x: len(x))",
-        "sorted(words, key=lambda x: x)"
-      ],
-      ans: 1,
-      explain: "<strong>key=len</strong> передаёт функцию len как критерий: каждый элемент «оценивается» своей длиной. Результат: <strong>['fig', 'apple', 'banana']</strong>"
-    },
-    {
-      pts: 400,
-      q: "Что выведет код?",
-      code: `nums = [3, -1, 4, -1, 5, -9]\nresult = list(filter(lambda x: x > 0, nums))\nprint(result)`,
-      opts: ["[3, 4, 5]", "[3, -1, 4, -1, 5, -9]", "[-1, -1, -9]", "Ошибка"],
-      ans: 0,
-      explain: "<strong>filter(func, iterable)</strong> оставляет только элементы, для которых func возвращает True. Lambda <strong>x > 0</strong> отбирает положительные → <strong>[3, 4, 5]</strong>"
-    },
-    {
-      pts: 500,
-      q: "Что выведет код?",
-      code: `pairs = [(1, 'b'), (3, 'a'), (2, 'c')]\ns = sorted(pairs, key=lambda p: p[1])\nprint(s)`,
-      opts: [
-        "[(1,'b'), (2,'c'), (3,'a')]",
-        "[(3,'a'), (1,'b'), (2,'c')]",
-        "[(1,'b'), (3,'a'), (2,'c')]",
-        "Ошибка"
-      ],
-      ans: 1,
-      explain: "Сортировка по <strong>второму элементу пары (p[1])</strong>: 'a' < 'b' < 'c'. Поэтому порядок кортежей: <strong>[(3,'a'), (1,'b'), (2,'c')]</strong>"
-    },
-  ],
-];
-
-// ─── State ───────────────────────────────────────
-let score = 0, correctCount = 0, totalAnswered = 0;
-let current = null, picked = null;
-
-const LETTERS = ['A', 'B', 'C', 'D'];
-
-// ─── Render board ────────────────────────────────
-function renderBoard() {
-  const board = document.getElementById('board');
-  board.innerHTML = '';
-
-  CATS.forEach(cat => {
-    const h = document.createElement('div');
-    h.className = 'cat-title';
-    h.innerHTML = `<span class="cat-icon">${cat.icon}</span>${cat.name}`;
-    board.appendChild(h);
-  });
-
-  for (let qi = 0; qi < 5; qi++) {
-    CATS.forEach((cat, ci) => {
-      const q = Q[ci][qi];
-      const cell = document.createElement('div');
-      cell.className = 'cell' + (q.used ? ' used' : '');
-      cell.setAttribute('data-pts', q.pts);
-      if (!q.used) {
-        cell.textContent = q.pts;
-        cell.onclick = () => openModal(ci, qi);
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Своя игра — Python</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Unbounded:wght@400;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0d0f14;
+        --surface: #161920;
+        --surface2: #1e2330;
+        --border: rgba(255, 255, 255, 0.07);
+        --border2: rgba(255, 255, 255, 0.13);
+        --text: #eef0f6;
+        --muted: #6b7280;
+        --accent: #7cffb2;
+        --accent2: #4f9eff;
+        --accent3: #ffb347;
+        --accent4: #ff6b9d;
+        --accent5: #c084fc;
+        --danger: #ff5a5a;
+        --success: #7cffb2;
+        --mono: "JetBrains Mono", monospace;
+        --display: "Unbounded", sans-serif;
       }
-      board.appendChild(cell);
-    });
-  }
-}
 
-// ─── Modal ───────────────────────────────────────
-function openModal(ci, qi) {
-  current = { ci, qi };
-  picked = null;
-  const q = Q[ci][qi];
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-  document.getElementById('m-cat').textContent = CATS[ci].name;
-  document.getElementById('m-pts').textContent = '+' + q.pts + ' очков';
-  document.getElementById('m-q').textContent = q.q;
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--mono);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
 
-  const codeEl = document.getElementById('m-code');
-  if (q.code) {
-    codeEl.style.display = 'block';
-    codeEl.textContent = q.code;
-  } else {
-    codeEl.style.display = 'none';
-  }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(124, 255, 178, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(124, 255, 178, 0.03) 1px, transparent 1px);
+        background-size: 48px 48px;
+        pointer-events: none;
+        z-index: 0;
+      }
 
-  const optsEl = document.getElementById('m-opts');
-  optsEl.innerHTML = '';
-  q.opts.forEach((o, i) => {
-    const btn = document.createElement('div');
-    btn.className = 'opt';
-    btn.innerHTML = `<span class="opt-letter">${LETTERS[i]}</span>${o}`;
-    btn.onclick = () => selectOpt(i);
-    optsEl.appendChild(btn);
-  });
+      .page {
+        position: relative;
+        z-index: 1;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
 
-  const explain = document.getElementById('m-explain');
-  explain.classList.remove('show');
-  explain.innerHTML = '';
+      /* ── HEADER ── */
+      .site-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        animation: fadeDown 0.6s ease both;
+      }
+      .site-header .eyebrow {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 0.75rem;
+        opacity: 0.8;
+      }
+      .site-header h1 {
+        font-family: var(--display);
+        font-size: clamp(2rem, 6vw, 3.5rem);
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: -1px;
+        background: linear-gradient(135deg, #fff 30%, var(--accent) 80%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.5rem;
+      }
+      .site-header .sub {
+        font-size: 13px;
+        color: var(--muted);
+        letter-spacing: 1px;
+      }
 
-  const confirmBtn = document.getElementById('m-confirm');
-  confirmBtn.style.display = 'none';
-  confirmBtn.className = 'btn btn-confirm';
-  confirmBtn.textContent = 'Засчитать';
+      /* ── MODE SELECT ── */
+      .mode-screen {
+        animation: fadeUp 0.5s ease both;
+        padding: 1rem 0 2rem;
+      }
+      .mode-screen h2 {
+        font-family: var(--display);
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--muted);
+        text-align: center;
+        margin-bottom: 1.5rem;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+      .mode-btns {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        max-width: 700px;
+        margin: 0 auto;
+      }
+      .mode-btn {
+        background: var(--surface);
+        border: 1px solid var(--border2);
+        border-radius: 16px;
+        padding: 2rem 1.5rem;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        transition:
+          background 0.15s,
+          border-color 0.15s,
+          transform 0.12s,
+          box-shadow 0.15s;
+        font-family: var(--mono);
+        color: var(--text);
+        position: relative;
+        overflow: hidden;
+      }
+      .mode-btn:hover {
+        transform: translateY(-3px);
+        border-color: var(--accent);
+        background: rgba(124, 255, 178, 0.05);
+        box-shadow: 0 0 30px rgba(124, 255, 178, 0.1);
+      }
+      .mode-btn:active {
+        transform: scale(0.98);
+      }
+      .mode-btn.sport-btn:hover {
+        border-color: var(--accent2);
+        background: rgba(79, 158, 255, 0.06);
+        box-shadow: 0 0 30px rgba(79, 158, 255, 0.1);
+      }
+      .mode-btn-icon {
+        font-size: 2.5rem;
+        line-height: 1;
+      }
+      .mode-btn-title {
+        font-family: var(--display);
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text);
+        text-align: center;
+        line-height: 1.3;
+      }
+      .mode-btn-sub {
+        font-size: 11px;
+        color: var(--muted);
+        text-align: center;
+        line-height: 1.5;
+        letter-spacing: 0.3px;
+      }
 
-  document.getElementById('overlay').classList.add('open');
-}
+      /* ── SCORE BAR ── */
+      .scorebar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--surface);
+        border: 1px solid var(--border2);
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        margin-bottom: 2rem;
+        animation: fadeDown 0.6s 0.1s ease both;
+      }
+      .score-block {
+        text-align: center;
+      }
+      .score-label {
+        font-size: 10px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .score-num {
+        font-family: var(--display);
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--accent);
+        transition: transform 0.2s;
+      }
+      .score-num.bump {
+        transform: scale(1.25);
+      }
+      .progress-block {
+        flex: 1;
+        margin: 0 2rem;
+      }
+      .progress-label {
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 6px;
+        text-align: center;
+      }
+      .progress-bar {
+        height: 6px;
+        background: var(--surface2);
+        border-radius: 99px;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent2), var(--accent));
+        border-radius: 99px;
+        transition: width 0.4s ease;
+        width: 0%;
+      }
 
-function selectOpt(i) {
-  if (picked !== null) return;
-  picked = i;
-  const q = Q[current.ci][current.qi];
-  const opts = document.querySelectorAll('.opt');
+      /* back button inside scorebar */
+      .back-btn {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        padding: 6px 14px;
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          color 0.15s;
+        white-space: nowrap;
+      }
+      .back-btn:hover {
+        background: var(--surface2);
+        color: var(--text);
+      }
 
-  opts.forEach((el, idx) => {
-    el.classList.add('disabled');
-    if (idx === q.ans) el.classList.add('correct');
-    else if (idx === i && i !== q.ans) el.classList.add('wrong');
-  });
+      /* ── BOARD ── */
+      .board {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        animation: fadeUp 0.6s 0.2s ease both;
+      }
+      .board.cols-4 {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
 
-  const explain = document.getElementById('m-explain');
-  explain.innerHTML = q.explain;
-  explain.classList.add('show');
+      .cat-title {
+        background: var(--surface);
+        border: 1px solid var(--border2);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: var(--text);
+        min-height: 60px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+      }
+      .cat-title .cat-icon {
+        font-size: 18px;
+      }
 
-  const isCorrect = (i === q.ans);
-  const confirmBtn = document.getElementById('m-confirm');
-  confirmBtn.style.display = 'block';
-  if (isCorrect) {
-    confirmBtn.textContent = `Засчитать +${q.pts}`;
-    confirmBtn.className = 'btn btn-confirm';
-  } else {
-    confirmBtn.textContent = 'Закрыть без очков';
-    confirmBtn.className = 'btn btn-confirm wrong-mode';
-  }
-}
+      .cell {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-family: var(--display);
+        font-size: 1.4rem;
+        font-weight: 700;
+        transition:
+          background 0.15s,
+          border-color 0.15s,
+          transform 0.12s,
+          box-shadow 0.15s;
+        position: relative;
+        overflow: hidden;
+      }
+      .cell::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: currentColor;
+        opacity: 0;
+        transition: opacity 0.15s;
+        border-radius: inherit;
+      }
+      .cell:hover {
+        transform: translateY(-2px);
+        border-color: var(--border2);
+      }
+      .cell:active {
+        transform: translateY(0) scale(0.97);
+      }
 
-function confirmAnswer() {
-  const q = Q[current.ci][current.qi];
-  const isCorrect = (picked === q.ans);
-  if (isCorrect) {
-    score += q.pts;
-    correctCount++;
-    animateScore();
-  }
-  q.used = true;
-  totalAnswered++;
-  updateStats();
-  closeModal();
-  renderBoard();
-  if (totalAnswered === 15) setTimeout(showResult, 400);
-}
+      .cell[data-pts="100"] {
+        color: var(--accent);
+        border-left: 3px solid var(--accent);
+      }
+      .cell[data-pts="200"] {
+        color: var(--accent2);
+        border-left: 3px solid var(--accent2);
+      }
+      .cell[data-pts="300"] {
+        color: var(--accent3);
+        border-left: 3px solid var(--accent3);
+      }
+      .cell[data-pts="400"] {
+        color: var(--accent4);
+        border-left: 3px solid var(--accent4);
+      }
+      .cell[data-pts="500"] {
+        color: var(--accent5);
+        border-left: 3px solid var(--accent5);
+      }
+      .cell[data-pts="100"]:hover {
+        background: rgba(124, 255, 178, 0.08);
+        box-shadow: 0 0 20px rgba(124, 255, 178, 0.12);
+      }
+      .cell[data-pts="200"]:hover {
+        background: rgba(79, 158, 255, 0.08);
+        box-shadow: 0 0 20px rgba(79, 158, 255, 0.12);
+      }
+      .cell[data-pts="300"]:hover {
+        background: rgba(255, 179, 71, 0.08);
+        box-shadow: 0 0 20px rgba(255, 179, 71, 0.12);
+      }
+      .cell[data-pts="400"]:hover {
+        background: rgba(255, 107, 157, 0.08);
+        box-shadow: 0 0 20px rgba(255, 107, 157, 0.12);
+      }
+      .cell[data-pts="500"]:hover {
+        background: rgba(192, 132, 252, 0.08);
+        box-shadow: 0 0 20px rgba(192, 132, 252, 0.12);
+      }
 
-function closeModal() {
-  document.getElementById('overlay').classList.remove('open');
-  current = null;
-}
+      .cell.used {
+        background: var(--surface2);
+        color: transparent;
+        cursor: default;
+        border-color: transparent;
+        border-left-color: transparent;
+        box-shadow: none;
+        pointer-events: none;
+      }
+      .cell.used::before {
+        content: "✓";
+        color: rgba(255, 255, 255, 0.1);
+        font-family: var(--mono);
+        font-size: 1.2rem;
+        font-weight: 400;
+      }
 
-// ─── Stats ───────────────────────────────────────
-function updateStats() {
-  document.getElementById('score').textContent = score;
-  document.getElementById('correct-count').textContent = correctCount;
-  document.getElementById('progress-label').textContent = totalAnswered + ' из 15 вопросов';
-  document.getElementById('progress-fill').style.width = (totalAnswered / 15 * 100) + '%';
-}
+      /* ── MODAL ── */
+      .overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(6px);
+        z-index: 200;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+      }
+      .overlay.open {
+        display: flex;
+        animation: fadeIn 0.2s ease;
+      }
 
-function animateScore() {
-  const el = document.getElementById('score');
-  el.classList.add('bump');
-  setTimeout(() => el.classList.remove('bump'), 350);
-}
+      .modal {
+        background: var(--surface);
+        border: 1px solid var(--border2);
+        border-radius: 20px;
+        padding: 2rem;
+        width: 100%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        animation: slideUp 0.25s ease;
+      }
 
-// ─── Result ──────────────────────────────────────
-function showResult() {
-  document.getElementById('board').style.display = 'none';
-  document.querySelector('.scorebar').style.display = 'none';
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+      }
+      .modal-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .badge {
+        font-size: 11px;
+        font-family: var(--mono);
+        font-weight: 700;
+        letter-spacing: 1px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        text-transform: uppercase;
+      }
+      .badge-cat {
+        background: var(--surface2);
+        color: var(--muted);
+      }
+      .badge-pts {
+        background: rgba(124, 255, 178, 0.12);
+        color: var(--accent);
+        border: 1px solid rgba(124, 255, 178, 0.2);
+      }
+      .badge-bug {
+        background: rgba(255, 90, 90, 0.12);
+        color: var(--danger);
+        border: 1px solid rgba(255, 90, 90, 0.25);
+      }
+      .close-btn {
+        background: none;
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          background 0.15s,
+          color 0.15s;
+      }
+      .close-btn:hover {
+        background: var(--surface2);
+        color: var(--text);
+      }
 
-  const pct = correctCount / 15;
-  const emoji = pct >= 0.8 ? '🏆' : pct >= 0.6 ? '🎯' : pct >= 0.4 ? '💡' : '📚';
-  const msg = pct >= 0.8
-    ? 'Отличная работа! Материал освоен на отлично.'
-    : pct >= 0.6
-    ? 'Хороший результат! Пара тем требует повторения.'
-    : pct >= 0.4
-    ? 'Неплохо, но стоит ещё раз пройти материал.'
-    : 'Рекомендуем повторить все три темы.';
+      .modal-q {
+        font-size: 17px;
+        font-weight: 500;
+        line-height: 1.55;
+        color: var(--text);
+        margin-bottom: 1.25rem;
+        font-family: var(--mono);
+      }
 
-  const result = document.getElementById('result');
-  result.innerHTML = `
-    <div class="result-icon">${emoji}</div>
-    <h2>Игра окончена!</h2>
-    <div class="result-final">${score} очков</div>
-    <div class="result-msg">${msg}</div>
-    <div class="result-stats">
-      <div class="stat-card"><div class="sl">Правильно</div><div class="sv">${correctCount} / 15</div></div>
-      <div class="stat-card"><div class="sl">Точность</div><div class="sv">${Math.round(pct*100)}%</div></div>
-      <div class="stat-card"><div class="sl">Макс. балл</div><div class="sv">4500</div></div>
+      .code-block {
+        background: #0a0c10;
+        border: 1px solid var(--border2);
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        font-family: var(--mono);
+        font-size: 13px;
+        color: #e8eaf0;
+        white-space: pre;
+        overflow-x: auto;
+        line-height: 1.7;
+        margin-bottom: 1.5rem;
+        position: relative;
+      }
+      .code-block::before {
+        content: "python";
+        position: absolute;
+        top: 8px;
+        right: 12px;
+        font-size: 10px;
+        letter-spacing: 1px;
+        color: var(--muted);
+      }
+
+      .kw {
+        color: #c084fc;
+      }
+      .fn {
+        color: #4f9eff;
+      }
+      .num {
+        color: #ffb347;
+      }
+      .str {
+        color: #7cffb2;
+      }
+      .op {
+        color: #ff6b9d;
+      }
+      .cm {
+        color: #555;
+        font-style: italic;
+      }
+
+      .options {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 1.25rem;
+      }
+      .opt {
+        border: 1px solid var(--border2);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 13px;
+        font-family: var(--mono);
+        color: var(--text);
+        cursor: pointer;
+        transition:
+          background 0.12s,
+          border-color 0.12s,
+          transform 0.1s;
+        text-align: left;
+        background: var(--surface2);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .opt-letter {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: var(--surface);
+        border: 1px solid var(--border2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--muted);
+        flex-shrink: 0;
+        transition:
+          background 0.12s,
+          color 0.12s,
+          border-color 0.12s;
+      }
+      .opt:hover {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: translateX(2px);
+      }
+      .opt:hover .opt-letter {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+      }
+      .opt.correct {
+        background: rgba(124, 255, 178, 0.08);
+        border-color: rgba(124, 255, 178, 0.4);
+      }
+      .opt.correct .opt-letter {
+        background: var(--accent);
+        color: #000;
+        border-color: var(--accent);
+      }
+      .opt.wrong {
+        background: rgba(255, 90, 90, 0.08);
+        border-color: rgba(255, 90, 90, 0.35);
+      }
+      .opt.wrong .opt-letter {
+        background: var(--danger);
+        color: #fff;
+        border-color: var(--danger);
+      }
+      .opt.disabled {
+        cursor: default;
+        transform: none;
+      }
+      .opt.disabled:hover {
+        background: inherit;
+      }
+
+      .explain-box {
+        display: none;
+        background: rgba(124, 255, 178, 0.05);
+        border: 1px solid rgba(124, 255, 178, 0.15);
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        font-size: 13px;
+        line-height: 1.7;
+        color: #a3e9c4;
+        margin-bottom: 1.25rem;
+      }
+      .explain-box.show {
+        display: block;
+        animation: fadeIn 0.3s ease;
+      }
+      .explain-box strong {
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      .modal-footer {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+      .btn {
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: 700;
+        padding: 10px 22px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          transform 0.1s,
+          opacity 0.15s;
+        letter-spacing: 0.5px;
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+      .btn-ghost {
+        background: transparent;
+        border: 1px solid var(--border2);
+        color: var(--muted);
+      }
+      .btn-ghost:hover {
+        background: var(--surface2);
+        color: var(--text);
+      }
+      .btn-confirm {
+        background: var(--accent);
+        border: none;
+        color: #0a0c10;
+        display: none;
+      }
+      .btn-confirm:hover {
+        opacity: 0.85;
+      }
+      .btn-confirm.wrong-mode {
+        background: var(--surface2);
+        color: var(--muted);
+        border: 1px solid var(--border2);
+      }
+
+      /* ── RESULT SCREEN ── */
+      .result-screen {
+        display: none;
+        text-align: center;
+        padding: 4rem 2rem;
+        animation: fadeUp 0.5s ease;
+      }
+      .result-screen.show {
+        display: block;
+      }
+      .result-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+      }
+      .result-screen h2 {
+        font-family: var(--display);
+        font-size: 2rem;
+        font-weight: 900;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(135deg, #fff, var(--accent));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .result-final {
+        font-family: var(--display);
+        font-size: 4rem;
+        font-weight: 900;
+        color: var(--accent);
+        margin: 1.5rem 0 0.5rem;
+      }
+      .result-msg {
+        font-size: 14px;
+        color: var(--muted);
+        margin-bottom: 2.5rem;
+        line-height: 1.6;
+      }
+      .result-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        max-width: 420px;
+        margin: 0 auto 2.5rem;
+      }
+      .stat-card {
+        background: var(--surface);
+        border: 1px solid var(--border2);
+        border-radius: 12px;
+        padding: 1rem;
+      }
+      .stat-card .sl {
+        font-size: 10px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .stat-card .sv {
+        font-family: var(--display);
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      /* ── ANIMATIONS ── */
+      @keyframes fadeDown {
+        from {
+          opacity: 0;
+          transform: translateY(-16px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(24px) scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes pop {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.3);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border2);
+        border-radius: 3px;
+      }
+
+      @media (max-width: 600px) {
+        .mode-btns {
+          grid-template-columns: 1fr;
+        }
+        .board.cols-4 {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="site-header">
+        <div class="eyebrow">интерактивное повторение</div>
+        <h1>Своя Игра</h1>
+        <div class="sub" id="header-sub">Выбери режим и начни игру</div>
+      </header>
+
+      <!-- Экран выбора режима -->
+      <div id="mode-screen" class="mode-screen">
+        <h2>Выбери режим</h2>
+        <div class="mode-btns">
+          <button class="mode-btn" onclick="startMode('basics')">
+            <span class="mode-btn-icon">🐍</span>
+            <span class="mode-btn-title">Основы программирования</span>
+            <span class="mode-btn-sub"
+              >comprehension · lambda · основы Python<br />3 категории · 15
+              вопросов</span
+            >
+          </button>
+          <button class="mode-btn sport-btn" onclick="startMode('sport')">
+            <span class="mode-btn-icon">⚡</span>
+            <span class="mode-btn-title">Спорт прога</span>
+            <span class="mode-btn-sub"
+              >два указателя · бинарный поиск · жадность<br />4 категории · 20
+              вопросов</span
+            >
+          </button>
+        </div>
+      </div>
+
+      <!-- Игровое поле (скрыто до выбора режима) -->
+      <div id="game-area" style="display: none">
+        <div class="scorebar">
+          <div class="score-block">
+            <div class="score-label">Счёт</div>
+            <div class="score-num" id="score">0</div>
+          </div>
+          <div class="progress-block">
+            <div class="progress-label" id="progress-label">
+              0 из 0 вопросов
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-fill"></div>
+            </div>
+          </div>
+          <div class="score-block">
+            <div class="score-label">Верных</div>
+            <div class="score-num" id="correct-count" style="color: #fff">
+              0
+            </div>
+          </div>
+          <button class="back-btn" onclick="goToMenu()">← Меню</button>
+        </div>
+
+        <div class="board" id="board"></div>
+        <div class="result-screen" id="result"></div>
+      </div>
     </div>
-    <button class="btn btn-confirm" style="font-size:14px;padding:12px 28px;" onclick="resetGame()">Сыграть снова</button>
-  `;
-  result.classList.add('show');
-}
 
-function resetGame() {
-  score = 0; correctCount = 0; totalAnswered = 0;
-  Q.forEach(cat => cat.forEach(q => delete q.used));
-  updateStats();
-  document.getElementById('board').style.display = 'grid';
-  document.querySelector('.scorebar').style.display = 'flex';
-  document.getElementById('result').classList.remove('show');
-  document.getElementById('result').innerHTML = '';
-  renderBoard();
-}
+    <!-- MODAL -->
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <div class="modal-meta">
+            <span class="badge badge-cat" id="m-cat">—</span>
+            <span class="badge badge-pts" id="m-pts">100</span>
+            <span class="badge badge-bug" id="m-bug" style="display: none"
+              >🐛 найди ошибку</span
+            >
+          </div>
+          <button class="close-btn" onclick="closeModal()" title="Закрыть">
+            ✕
+          </button>
+        </div>
+        <div class="modal-q" id="m-q"></div>
+        <div class="code-block" id="m-code" style="display: none"></div>
+        <div class="options" id="m-opts"></div>
+        <div class="explain-box" id="m-explain"></div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal()">Закрыть</button>
+          <button
+            class="btn btn-confirm"
+            id="m-confirm"
+            onclick="confirmAnswer()"
+          >
+            Засчитать
+          </button>
+        </div>
+      </div>
+    </div>
 
-// ─── Init ─────────────────────────────────────────
-renderBoard();
-</script>
-</body>
+    <script>
+            // ═══════════════════════════════════════════════
+            //  ДАННЫЕ: ОСНОВЫ ПРОГРАММИРОВАНИЯ
+            // ═══════════════════════════════════════════════
+            const BASICS_CATS = [
+              { name: "Основы Python", icon: "⚙️" },
+              { name: "List Comprehension", icon: "📋" },
+              { name: "Lambda-функции", icon: "λ" },
+            ];
+
+            const BASICS_Q = [
+              // === Основы Python ===
+              [
+                {
+                  pts: 100,
+                  q: "Что выведет этот код?",
+                  code: `x = [1, 2, 3]\nprint(len(x))`,
+                  opts: ["1", "3", "[1, 2, 3]", "None"],
+                  ans: 1,
+                  explain:
+                    "<strong>len()</strong> возвращает количество элементов. В списке [1, 2, 3] три элемента → выведет <strong>3</strong>.",
+                },
+                {
+                  pts: 200,
+                  q: "Что такое изменяемый (mutable) тип данных?",
+                  code: null,
+                  opts: [
+                    "Тот, значение которого нельзя изменить",
+                    "Тот, значение которого можно изменить после создания",
+                    "Любой числовой тип",
+                    "Тип, созданный через class",
+                  ],
+                  ans: 1,
+                  explain:
+                    "<strong>Изменяемые (mutable):</strong> list, dict, set — их можно менять на месте. <strong>Неизменяемые (immutable):</strong> int, str, tuple — создаётся новый объект при «изменении».",
+                },
+                {
+                  pts: 300,
+                  q: "Что выведет код?",
+                  code: `def greet(name, greeting="Привет"):\n    return f"{greeting}, {name}!"\n\nprint(greet("Маша"))`,
+                  opts: [
+                    "Привет, Маша!",
+                    "None",
+                    "Ошибка: нет аргумента greeting",
+                    "greeting, Маша!",
+                  ],
+                  ans: 0,
+                  explain:
+                    '<strong>Параметр со значением по умолчанию</strong>: если greeting не передан, используется "Привет". Вывод: <strong>Привет, Маша!</strong>',
+                },
+                {
+                  pts: 400,
+                  q: "Чем list отличается от tuple?",
+                  code: null,
+                  opts: [
+                    "Ничем, это синонимы",
+                    "list изменяем, tuple — неизменяемый",
+                    "tuple хранит только строки",
+                    "list быстрее при любых операциях",
+                  ],
+                  ans: 1,
+                  explain:
+                    "<strong>list []</strong> — mutable (изменяемый): можно добавлять, удалять элементы. <strong>tuple ()</strong> — immutable (неизменяемый): структура фиксирована после создания.",
+                },
+                {
+                  pts: 500,
+                  q: "Что выведет код? (Важно!)",
+                  code: `a = [1, 2, 3]\nb = a\nb.append(4)\nprint(a)`,
+                  opts: ["[1, 2, 3]", "[1, 2, 3, 4]", "Ошибка", "[4]"],
+                  ans: 1,
+                  explain:
+                    "<strong>b = a</strong> — это не копия, а ещё одна ссылка на тот же объект в памяти. Изменение через b меняет и a. Чтобы скопировать: <strong>b = a.copy()</strong> или <strong>b = a[:]</strong>",
+                },
+              ],
+              // === List Comprehension ===
+              [
+                {
+                  pts: 100,
+                  q: "Что вернёт этот comprehension?",
+                  code: `[x * 2 for x in range(5)]`,
+                  opts: [
+                    "[0, 1, 2, 3, 4]",
+                    "[0, 2, 4, 6, 8]",
+                    "[2, 4, 6, 8, 10]",
+                    "Ошибка",
+                  ],
+                  ans: 1,
+                  explain:
+                    "<strong>range(5)</strong> → 0, 1, 2, 3, 4. Каждый умножается на 2 → <strong>[0, 2, 4, 6, 8]</strong>",
+                },
+                {
+                  pts: 200,
+                  q: "Как записать comprehension, который оставит только чётные числа от 1 до 10?",
+                  code: null,
+                  opts: [
+                    "[x for x in range(10) if x % 2]",
+                    "[x for x in range(1, 11) if x % 2 == 0]",
+                    "[x * 2 for x in range(5)]",
+                    "[even(x) for x in range(10)]",
+                  ],
+                  ans: 1,
+                  explain:
+                    "<strong>range(1, 11)</strong> даёт числа 1..10. Условие <strong>if x % 2 == 0</strong> пропускает только чётные числа → [2, 4, 6, 8, 10]",
+                },
+                {
+                  pts: 300,
+                  q: "Что выведет код?",
+                  code: `words = ['hi', 'hello', 'hey']\nresult = [w.upper() for w in words if len(w) > 2]\nprint(result)`,
+                  opts: [
+                    "['HI', 'HELLO', 'HEY']",
+                    "['HELLO', 'HEY']",
+                    "['hello', 'hey']",
+                    "Ошибка",
+                  ],
+                  ans: 1,
+                  explain:
+                    "Фильтр <strong>len(w) > 2</strong> исключает 'hi' (длина 2). Остаются 'hello' и 'hey', к которым применяется <strong>.upper()</strong> → <strong>['HELLO', 'HEY']</strong>",
+                },
+                {
+                  pts: 400,
+                  q: "Как создать словарь {0: 'a', 1: 'b', 2: 'c'} через dict comprehension?",
+                  code: null,
+                  opts: [
+                    "{i: c for i, c in enumerate('abc')}",
+                    "{i: c for c in 'abc'}",
+                    "[i: c for i, c in 'abc']",
+                    "{enumerate('abc')}",
+                  ],
+                  ans: 0,
+                  explain:
+                    "<strong>enumerate('abc')</strong> генерирует пары: (0,'a'), (1,'b'), (2,'c'). <strong>Dict comprehension</strong> {k: v for k, v in ...} собирает их в словарь.",
+                },
+                {
+                  pts: 500,
+                  q: "Что выведет код?",
+                  code: `matrix = [[1, 2, 3], [4, 5, 6]]\nflat = [n for row in matrix for n in row]\nprint(flat)`,
+                  opts: [
+                    "[[1,2,3],[4,5,6]]",
+                    "[1, 2, 3, 4, 5, 6]",
+                    "Ошибка",
+                    "[(1,2,3),(4,5,6)]",
+                  ],
+                  ans: 1,
+                  explain:
+                    "<strong>Вложенный comprehension</strong>: сначала итерируемся по строкам матрицы, затем по элементам каждой строки. Это «расплющивает» матрицу в плоский список: <strong>[1, 2, 3, 4, 5, 6]</strong>",
+                },
+              ],
+              // === Lambda ===
+              [
+                {
+                  pts: 100,
+                  q: "Что такое lambda-функция в Python?",
+                  code: null,
+                  opts: [
+                    "Именованная функция с ключевым словом return",
+                    "Анонимная функция в одну строку",
+                    "Функция без аргументов",
+                    "Встроенная функция Python",
+                  ],
+                  ans: 1,
+                  explain:
+                    "<strong>lambda</strong> — анонимная функция: <strong>lambda аргументы: выражение</strong>. Эквивалент def, но без имени. Результат выражения возвращается автоматически.",
+                },
+                {
+                  pts: 200,
+                  q: "Что вернёт код?",
+                  code: `f = lambda x, y: x ** y\nprint(f(2, 3))`,
+                  opts: ["5", "6", "8", "Ошибка"],
+                  ans: 2,
+                  explain:
+                    "<strong>x ** y</strong> — возведение в степень. f(2, 3) → 2³ = <strong>8</strong>",
+                },
+                {
+                  pts: 300,
+                  q: "Как отсортировать список по длине строк с помощью sorted()?",
+                  code: `words = ['banana', 'fig', 'apple']`,
+                  opts: [
+                    "sorted(words)",
+                    "sorted(words, key=len)",
+                    "words.sort(lambda x: len(x))",
+                    "sorted(words, key=lambda x: x)",
+                  ],
+                  ans: 1,
+                  explain:
+                    "<strong>key=len</strong> передаёт функцию len как критерий: каждый элемент «оценивается» своей длиной. Результат: <strong>['fig', 'apple', 'banana']</strong>",
+                },
+                {
+                  pts: 400,
+                  q: "Что выведет код?",
+                  code: `nums = [3, -1, 4, -1, 5, -9]\nresult = list(filter(lambda x: x > 0, nums))\nprint(result)`,
+                  opts: [
+                    "[3, 4, 5]",
+                    "[3, -1, 4, -1, 5, -9]",
+                    "[-1, -1, -9]",
+                    "Ошибка",
+                  ],
+                  ans: 0,
+                  explain:
+                    "<strong>filter(func, iterable)</strong> оставляет только элементы, для которых func возвращает True. Lambda <strong>x > 0</strong> отбирает положительные → <strong>[3, 4, 5]</strong>",
+                },
+                {
+                  pts: 500,
+                  q: "Что выведет код?",
+                  code: `pairs = [(1, 'b'), (3, 'a'), (2, 'c')]\ns = sorted(pairs, key=lambda p: p[1])\nprint(s)`,
+                  opts: [
+                    "[(1,'b'), (2,'c'), (3,'a')]",
+                    "[(3,'a'), (1,'b'), (2,'c')]",
+                    "[(1,'b'), (3,'a'), (2,'c')]",
+                    "Ошибка",
+                  ],
+                  ans: 1,
+                  explain:
+                    "Сортировка по <strong>второму элементу пары (p[1])</strong>: 'a' < 'b' < 'c'. Поэтому порядок кортежей: <strong>[(3,'a'), (1,'b'), (2,'c')]</strong>",
+                },
+              ],
+            ];
+
+            // ═══════════════════════════════════════════════
+            //  ДАННЫЕ: СПОРТ ПРОГА
+            // ═══════════════════════════════════════════════
+            const SPORT_CATS = [
+              { name: "Основы", icon: "📐" },
+              { name: "Два указателя", icon: "👆" },
+              { name: "Бинарный поиск", icon: "🔍" },
+              { name: "Жадные алгоритмы", icon: "💰" },
+            ];
+
+            const SPORT_Q = [
+              // === Основы ===
+              [
+                {
+                  pts: 100,
+                  q: "Что означает O(n)?",
+                  code: null,
+                  opts: [
+                    "Код выполняется в n раз быстрее обычного",
+                    "Время выполнения растёт линейно с размером входных данных",
+                    "Функция использует n байт памяти",
+                    "Алгоритм вызывает себя n раз",
+                  ],
+                  ans: 1,
+                  explain:
+                    "<strong>O(n)</strong> означает линейную зависимость: если входных данных в 2 раза больше — время работы тоже увеличивается примерно в 2 раза. Пример: простой перебор массива.",
+                },
+                {
+                  pts: 200,
+                  q: "Какова сложность доступа к элементу списка по индексу в Python?",
+                  code: null,
+                  opts: ["O(1)", "O(log n)", "O(n)", "O(n²)"],
+                  ans: 0,
+                  explain:
+                    "<strong>O(1) — константное время.</strong> Python list хранит элементы в непрерывной памяти, поэтому arr[i] — это прямой адресный расчёт, не зависящий от размера списка.",
+                },
+                {
+                  pts: 300,
+                  bug: true,
+                  q: "Найди ошибку: функция должна вернуть сумму всех элементов массива.",
+                  code: `def sum_array(arr):
+    total = 0
+    for i in range(len(arr) + 1):
+        total += arr[i]
+    return total`,
+                  opts: [
+                    "Ошибок нет, код корректен",
+                    "range(len(arr) + 1) вызовет IndexError: индекс выйдет за границу",
+                    "total нужно объявить как None перед циклом",
+                    "return нужно поставить внутрь цикла",
+                  ],
+                  ans: 1,
+                  explain:
+                    "<strong>range(len(arr) + 1)</strong> генерирует индексы 0..n включительно. При i == n обращение arr[n] вызовет <strong>IndexError</strong>. Правильно: <strong>range(len(arr))</strong> или просто <strong>for x in arr</strong>.",
+                },
+                {
+                  pts: 400,
+                  q: "Что выведет код?",
+                  code: `a = [1, 2, 3]\nb = a\nb.append(4)\nprint(a)`,
+                  opts: ["[1, 2, 3]", "[1, 2, 3, 4]", "Ошибка", "[4]"],
+                  ans: 1,
+                  explain:
+                    "<strong>b = a</strong> — это не копия, а ещё одна ссылка на тот же объект в памяти. Изменение через b меняет и a. Чтобы скопировать: <strong>b = a.copy()</strong> или <strong>b = a[:]</strong>",
+                },
+                {
+                  pts: 500,
+                  bug: true,
+                  q: "Найди ошибку: функция должна проверить, есть ли дубликаты в массиве.",
+                  code: `def has_duplicates(arr):
+    seen = set()
+    for x in arr:
+        seen.add(x)
+    return len(seen) == len(arr)`,
+                  opts: [
+                    "Ошибок нет, всё верно",
+                    "Условие обратное: дубликаты есть когда размеры НЕ равны — нужно !=",
+                    "seen.add() нужно заменить на seen.append()",
+                    "Нужно возвращать seen, а не булево значение",
+                  ],
+                  ans: 1,
+                  explain:
+                    "Если дубликатов нет — len(seen) == len(arr). Если есть — множество меньше. Функция должна вернуть True при наличии дубликатов, значит условие: <strong>len(seen) != len(arr)</strong>.",
+                },
+              ],
+              // === Два указателя ===
+              [
+                {
+                  pts: 100,
+                  q: "В каких задачах применяется техника двух указателей?",
+                  code: null,
+                  opts: [
+                    "Только для обхода деревьев",
+                    "Для задач с отсортированными массивами или последовательностями",
+                    "Исключительно для работы со строками",
+                    "Только в рекурсивных алгоритмах",
+                  ],
+                  ans: 1,
+                  explain:
+                    "<strong>Два указателя</strong> — техника для линейного O(n) прохода по структуре данных. Классические задачи: поиск пары с нужной суммой, разворот массива, удаление дубликатов из отсортированного массива.",
+                },
+                {
+                  pts: 200,
+                  q: "Что выведет код?",
+                  code: `def two_sum(arr, target):
+          l, r = 0, len(arr) - 1
+          while l < r:
+              s = arr[l] + arr[r]
+              if s == target:
+                  return [l, r]
+              elif s < target:
+                  l += 1
+              else:
+                  r -= 1
+          return []
+
+      print(two_sum([1, 3, 5, 7, 9], 10))`,
+                  opts: ["[1, 3]", "[0, 4]", "[2, 3]", "[]"],
+                  ans: 1,
+                  explain:
+                    "l=0, r=4: 1+9=10 → сразу возвращаем <strong>[0, 4]</strong>. Указатели движутся навстречу: если сумма меньше target — сдвигаем левый указатель вправо, если больше — правый влево.",
+                },
+                {
+                  pts: 300,
+                  bug: true,
+                  q: "Найди ошибку: функция должна развернуть массив на месте.",
+                  code: `def reverse_array(arr):
+          l, r = 0, len(arr)
+          while l < r:
+              arr[l], arr[r] = arr[r], arr[l]
+              l += 1
+              r -= 1
+          return arr`,
+                  opts: [
+                    "Ошибок нет, код корректен",
+                    "r должен быть len(arr) - 1, иначе arr[r] вызовет IndexError",
+                    "l должен начинаться с 1, а не с 0",
+                    "while нужно заменить на for с range",
+                  ],
+                  ans: 1,
+                  explain:
+                    "Индексы списка: 0..len-1. При <strong>r = len(arr)</strong> первое же обращение arr[r] вызывает <strong>IndexError</strong>. Правильная инициализация: <strong>r = len(arr) - 1</strong>.",
+                },
+                {
+                  pts: 400,
+                  q: "Что выведет код? (скользящее окно — максимальная сумма подмассива длиной k)",
+                  code: `def max_sum(arr, k):
+          window = sum(arr[:k])
+          best = window
+          for i in range(k, len(arr)):
+              window += arr[i] - arr[i - k]
+              best = max(best, window)
+          return best
+
+      print(max_sum([2, 1, 5, 1, 3, 2], 3))`,
+                  opts: ["6", "8", "9", "7"],
+                  ans: 2,
+                  explain:
+                    "Окна: [2,1,5]=8 → [1,5,1]=7 → [5,1,3]=<strong>9</strong> → [1,3,2]=6. Максимум — <strong>9</strong>. Скользящее окно позволяет обновлять сумму за O(1): прибавляем новый элемент, вычитаем ушедший.",
+                },
+                {
+                  pts: 500,
+                  bug: true,
+                  q: "Найди ошибку: функция считает количество пар с нулевой суммой в отсортированном массиве.",
+                  code: `def count_zero_pairs(arr):
+          l, r = 0, len(arr) - 1
+          count = 0
+          while l < r:
+              s = arr[l] + arr[r]
+              if s == 0:
+                  count += 1
+                  l += 1
+                  r -= 1
+              elif s < 0:
+                  r -= 1
+              else:
+                  l += 1
+          return count`,
+                  opts: [
+                    "Ошибок нет, всё верно",
+                    "Ветки перепутаны: при s < 0 нужно l += 1, при s > 0 — r -= 1",
+                    "count нужно объявить как список",
+                    "Условие цикла должно быть l <= r",
+                  ],
+                  ans: 1,
+                  explain:
+                    "Если сумма отрицательная — нам нужно большее число, сдвигаем <strong>l вправо</strong> (l += 1). Если положительная — нужно меньшее, сдвигаем <strong>r влево</strong> (r -= 1). Ветки в коде перепутаны местами.",
+                },
+              ],
+              // === Бинарный поиск ===
+              [
+                {
+                  pts: 100,
+                  q: "Какое обязательное условие для применения бинарного поиска?",
+                  code: null,
+                  opts: [
+                    "Массив должен содержать только числа",
+                    "Массив должен быть отсортирован",
+                    "Длина массива должна быть степенью двойки",
+                    "Все элементы массива должны быть уникальными",
+                  ],
+                  ans: 1,
+                  explain:
+                    "<strong>Бинарный поиск</strong> работает только на отсортированных данных. На каждом шаге мы делим пространство поиска пополам — это возможно только потому, что знаем: всё левее mid — меньше, правее — больше.",
+                },
+                {
+                  pts: 200,
+                  q: "Какова сложность бинарного поиска?",
+                  code: null,
+                  opts: ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+                  ans: 1,
+                  explain:
+                    "<strong>O(log n)</strong> — логарифмическая сложность. На каждом шаге мы делим количество оставшихся элементов на 2. Поэтому количество шагов не превышает log₂(n). Например, для миллиона элементов нужно не более 20 шагов.",
+                  },
+                {
+                  pts: 300,
+                  q: "Что выведет код?",
+                  code: `def binary_search(arr, target):
+          l, r = 0, len(arr) - 1
+          while l <= r:
+              mid = (l + r) // 2
+              if arr[mid] == target:
+                  return mid
+              elif arr[mid] < target:
+                  l = mid + 1
+              else:
+                  r = mid - 1
+          return -1
+
+      print(binary_search([1, 3, 5, 7, 9, 11], 7))`,
+                  opts: ["2", "3", "4", "-1"],
+                  ans: 1,
+                  explain:
+                    "Массив: [1,3,5,7,9,11]. Первый mid=(0+5)//2=2, arr[2]=5 < 7 → l=3. mid=(3+5)//2=4, arr[4]=9 > 7 → r=3. mid=3, arr[3]=7 ✓ → возвращаем <strong>3</strong>.",
+                },
+                {
+                  pts: 400,
+                  bug: true,
+                  q: "Найди ошибку: функция должна найти элемент в отсортированном массиве.",
+                  code: `def binary_search(arr, target):
+          l, r = 0, len(arr) - 1
+          while l < r:
+              mid = (l + r) // 2
+              if arr[mid] == target:
+                  return mid
+              elif arr[mid] < target:
+                  l = mid + 1
+              else:
+                  r = mid - 1
+          return -1`,
+                  opts: [
+                    "Ошибок нет, код корректен",
+                    "Условие должно быть l <= r, иначе последний оставшийся элемент не проверяется",
+                    "mid нужно вычислять как (l + r + 1) // 2",
+                    "Обязательно нужно использовать рекурсию вместо цикла",
+                  ],
+                  ans: 1,
+                  explain:
+                    "При <strong>l < r</strong> цикл завершается когда l == r, и этот элемент не проверяется. Если target находится именно там — функция вернёт -1 вместо нужного индекса. Правильно: <strong>while l <= r</strong>.",
+                },
+                {
+                  pts: 500,
+                  q: "Что выведет код? (поиск первого вхождения элемента)",
+                  code: `def first_occurrence(arr, target):
+          l, r = 0, len(arr) - 1
+          result = -1
+          while l <= r:
+              mid = (l + r) // 2
+              if arr[mid] == target:
+                  result = mid
+                  r = mid - 1
+              elif arr[mid] < target:
+                  l = mid + 1
+              else:
+                  r = mid - 1
+          return result
+
+      print(first_occurrence([1, 3, 3, 3, 5, 7], 3))`,
+                  opts: ["1", "2", "3", "-1"],
+                  ans: 0,
+                  explain:
+                    "Нашли 3 на позиции 2, сохранили result=2 и продолжили искать левее (r=1). Нашли 3 на позиции 1, result=1, r=0. l=1 > r=0 → выход. Первое вхождение: <strong>1</strong>.",
+                },
+              ],
+              // === Жадные алгоритмы ===
+              [
+                {
+                  pts: 100,
+                  q: "Что такое жадный алгоритм?",
+                  code: null,
+                  opts: [
+                    "Алгоритм, который перебирает все возможные варианты решения",
+                    "Алгоритм, который на каждом шаге выбирает локально оптимальное решение",
+                    "Алгоритм, обязательно использующий рекурсию",
+                    "Алгоритм с гарантированной сложностью O(1)",
+                  ],
+                  ans: 1,
+                  explain:
+                    "<strong>Жадный алгоритм</strong> на каждом шаге делает выбор, который кажется лучшим прямо сейчас, не пересматривая уже принятые решения. Работает не всегда, но для ряда задач (размен монет, расписание) даёт оптимум.",
+                },
+                {
+                  pts: 200,
+                  q: "Жадный алгоритм разменивает 41 копейку монетами [25, 10, 5, 1]. Какой набор он выберет?",
+                  code: null,
+                  opts: [
+                    "[25, 10, 5, 1]",
+                    "[10, 10, 10, 10, 1]",
+                    "[25, 10, 1, 1, 1, 1, 1, 1]",
+                    "[5, 5, 5, 5, 5, 5, 5, 5, 1]",
+                  ],
+                  ans: 0,
+                  explain:
+                    "Жадный алгоритм всегда берёт наибольшую монету, не превышающую остаток: 41 → -25 = 16 → -10 = 6 → -5 = 1 → -1 = 0. Итог: <strong>[25, 10, 5, 1]</strong> — 4 монеты (оптимально).",
+                },
+                {
+                  pts: 300,
+                  q: "Что выведет код? (жадный размен монет)",
+                  code: `coins = [25, 10, 5, 1]
+amount = 30
+result = []
+for coin in coins:
+    while amount >= coin:
+        result.append(coin)
+        amount -= coin
+print(result)`,
+                  opts: [
+                    "[25, 5]",
+                    "[10, 10, 10]",
+                    "[25, 1, 1, 1, 1, 1]",
+                    "[30]",
+                  ],
+                  ans: 0,
+                  explain:
+                    "Перебираем монеты от большей к меньшей: 30 ≥ 25 → берём 25, остаток 5. 5 < 10 → пропуск. 5 ≥ 5 → берём 5, остаток 0. Итог: <strong>[25, 5]</strong>.",
+                },
+                {
+                  pts: 400,
+                  q: "Что выведет код? (жадная сортировка задач по времени выполнения)",
+                  code: `def get_time(task):
+    return task[1]
+
+tasks = [('A', 3), ('B', 1), ('C', 2)]
+tasks.sort(key=get_time)
+
+order = []
+for t in tasks:
+    order.append(t[0])
+
+print(order)`,
+                  opts: [
+                    "['A', 'B', 'C']",
+                    "['B', 'C', 'A']",
+                    "['C', 'B', 'A']",
+                    "Ошибка",
+                  ],
+                  ans: 1,
+                  explain:
+                    "Функция get_time возвращает время выполнения (второй элемент). sort(key=get_time) сортирует по нему: B=1, C=2, A=3. Жадная идея: сначала короткие задачи → меньше ждать. Вывод: <strong>['B', 'C', 'A']</strong>.",
+                },
+                {
+                  pts: 500,
+                  bug: true,
+                  q: "Найди ошибку: функция должна жадно подобрать минимальное количество монет.",
+                  code: `def min_coins(coins, amount):
+    coins.sort()
+    count = 0
+    for coin in coins:
+        while amount >= coin:
+            amount -= coin
+            count += 1
+    return count if amount == 0 else -1
+
+print(min_coins([1, 5, 10, 25], 36))`,
+                  opts: [
+                    "Ошибок нет, вернёт 3",
+                    "coins.sort() сортирует по возрастанию — жадный алгоритм начинает с мелких монет и даёт неоптимальный ответ. Нужно sort(reverse=True)",
+                    "while нужно заменить на if",
+                    "Функция должна возвращать список монет, а не их количество",
+                  ],
+                  ans: 1,
+                  explain:
+                    "С <strong>sort()</strong> (возрастание): начинаем с монеты 1 → тратим 36 итераций, count=36. С <strong>sort(reverse=True)</strong>: 25→10→1 = 3 монеты. Жадный алгоритм <em>должен</em> начинать с наибольшего номинала.",
+                },
+              ],
+            ];
+
+            // ═══════════════════════════════════════════════
+            //  СОСТОЯНИЕ И ЛОГИКА
+            // ═══════════════════════════════════════════════
+            let activeCats = null;
+            let activeQ = null;
+            let totalQ = 0;
+            let currentMode = null;
+
+            let score = 0,
+              correctCount = 0,
+              totalAnswered = 0;
+            let current = null,
+              picked = null;
+
+            const LETTERS = ["A", "B", "C", "D"];
+
+            function startMode(mode) {
+              currentMode = mode;
+              if (mode === "basics") {
+                activeCats = BASICS_CATS;
+                activeQ = BASICS_Q;
+                document.getElementById("header-sub").textContent =
+                  "comprehension · lambda · основы Python";
+              } else {
+                activeCats = SPORT_CATS;
+                activeQ = SPORT_Q;
+                document.getElementById("header-sub").textContent =
+                  "два указателя · бинарный поиск · жадность";
+              }
+              totalQ = activeCats.length * 5;
+
+              score = 0;
+              correctCount = 0;
+              totalAnswered = 0;
+              activeQ.forEach((cat) => cat.forEach((q) => delete q.used));
+
+              document.getElementById("mode-screen").style.display = "none";
+              const gameArea = document.getElementById("game-area");
+              gameArea.style.display = "block";
+
+              const board = document.getElementById("board");
+              if (mode === "sport") {
+                board.classList.add("cols-4");
+              } else {
+                board.classList.remove("cols-4");
+              }
+
+              updateStats();
+              renderBoard();
+            }
+
+            function goToMenu() {
+              document.getElementById("game-area").style.display = "none";
+              document.getElementById("result").classList.remove("show");
+              document.getElementById("result").innerHTML = "";
+              document.getElementById("board").style.display = "grid";
+              document.querySelector(".scorebar").style.display = "flex";
+              document.getElementById("mode-screen").style.display = "block";
+              document.getElementById("header-sub").textContent =
+                "Выбери режим и начни игру";
+            }
+
+            // ─── Render board ─────────────────────────────
+            function renderBoard() {
+              const board = document.getElementById("board");
+              board.innerHTML = "";
+
+              activeCats.forEach((cat) => {
+                const h = document.createElement("div");
+                h.className = "cat-title";
+                h.innerHTML = `<span class="cat-icon">${cat.icon}</span>${cat.name}`;
+                board.appendChild(h);
+              });
+
+              for (let qi = 0; qi < 5; qi++) {
+                activeCats.forEach((cat, ci) => {
+                  const q = activeQ[ci][qi];
+                  const cell = document.createElement("div");
+                  cell.className = "cell" + (q.used ? " used" : "");
+                  cell.setAttribute("data-pts", q.pts);
+                  if (!q.used) {
+                    cell.textContent = q.pts;
+                    cell.onclick = () => openModal(ci, qi);
+                  }
+                  board.appendChild(cell);
+                });
+              }
+            }
+
+            // ─── Modal ────────────────────────────────────
+            function openModal(ci, qi) {
+              current = { ci, qi };
+              picked = null;
+              const q = activeQ[ci][qi];
+
+              document.getElementById("m-cat").textContent = activeCats[ci].name;
+              document.getElementById("m-pts").textContent = "+" + q.pts + " очков";
+
+              const bugBadge = document.getElementById("m-bug");
+              bugBadge.style.display = q.bug ? "inline-flex" : "none";
+
+              document.getElementById("m-q").textContent = q.q;
+
+              const codeEl = document.getElementById("m-code");
+              if (q.code) {
+                codeEl.style.display = "block";
+                codeEl.textContent = q.code;
+              } else {
+                codeEl.style.display = "none";
+              }
+
+              const optsEl = document.getElementById("m-opts");
+              optsEl.innerHTML = "";
+              q.opts.forEach((o, i) => {
+                const btn = document.createElement("div");
+                btn.className = "opt";
+                btn.innerHTML = `<span class="opt-letter">${LETTERS[i]}</span>${o}`;
+                btn.onclick = () => selectOpt(i);
+                optsEl.appendChild(btn);
+              });
+
+              const explain = document.getElementById("m-explain");
+              explain.classList.remove("show");
+              explain.innerHTML = "";
+
+              const confirmBtn = document.getElementById("m-confirm");
+              confirmBtn.style.display = "none";
+              confirmBtn.className = "btn btn-confirm";
+              confirmBtn.textContent = "Засчитать";
+
+              document.getElementById("overlay").classList.add("open");
+            }
+
+            function selectOpt(i) {
+              if (picked !== null) return;
+              picked = i;
+              const q = activeQ[current.ci][current.qi];
+              const opts = document.querySelectorAll(".opt");
+
+              opts.forEach((el, idx) => {
+                el.classList.add("disabled");
+                if (idx === q.ans) el.classList.add("correct");
+                else if (idx === i && i !== q.ans) el.classList.add("wrong");
+              });
+
+              const explain = document.getElementById("m-explain");
+              explain.innerHTML = q.explain;
+              explain.classList.add("show");
+
+              const isCorrect = i === q.ans;
+              const confirmBtn = document.getElementById("m-confirm");
+              confirmBtn.style.display = "block";
+              if (isCorrect) {
+                confirmBtn.textContent = `Засчитать +${q.pts}`;
+                confirmBtn.className = "btn btn-confirm";
+              } else {
+                confirmBtn.textContent = "Закрыть без очков";
+                confirmBtn.className = "btn btn-confirm wrong-mode";
+              }
+            }
+
+            function confirmAnswer() {
+              const q = activeQ[current.ci][current.qi];
+              const isCorrect = picked === q.ans;
+              if (isCorrect) {
+                score += q.pts;
+                correctCount++;
+                animateScore();
+              }
+              q.used = true;
+              totalAnswered++;
+              updateStats();
+              closeModal();
+              renderBoard();
+              if (totalAnswered === totalQ) setTimeout(showResult, 400);
+            }
+
+            function closeModal() {
+              document.getElementById("overlay").classList.remove("open");
+              current = null;
+            }
+
+            // ─── Stats ────────────────────────────────────
+            function updateStats() {
+              document.getElementById("score").textContent = score;
+              document.getElementById("correct-count").textContent = correctCount;
+              document.getElementById("progress-label").textContent =
+                totalAnswered + " из " + totalQ + " вопросов";
+              document.getElementById("progress-fill").style.width =
+                (totalQ > 0 ? (totalAnswered / totalQ) * 100 : 0) + "%";
+            }
+
+            function animateScore() {
+              const el = document.getElementById("score");
+              el.classList.add("bump");
+              setTimeout(() => el.classList.remove("bump"), 350);
+            }
+
+            // ─── Result ───────────────────────────────────
+            function showResult() {
+              document.getElementById("board").style.display = "none";
+              document.querySelector(".scorebar").style.display = "none";
+
+              const pct = correctCount / totalQ;
+              const maxScore = activeCats.length * (100 + 200 + 300 + 400 + 500);
+              const emoji =
+                pct >= 0.8 ? "🏆" : pct >= 0.6 ? "🎯" : pct >= 0.4 ? "💡" : "📚";
+              const msg =
+                pct >= 0.8
+                  ? "Отличная работа! Материал освоен на отлично."
+                  : pct >= 0.6
+                    ? "Хороший результат! Пара тем требует повторения."
+                    : pct >= 0.4
+                      ? "Неплохо, но стоит ещё раз пройти материал."
+                      : "Рекомендуем повторить все темы.";
+
+              const result = document.getElementById("result");
+              result.innerHTML = `
+          <div class="result-icon">${emoji}</div>
+          <h2>Игра окончена!</h2>
+          <div class="result-final">${score} очков</div>
+          <div class="result-msg">${msg}</div>
+          <div class="result-stats">
+            <div class="stat-card"><div class="sl">Правильно</div><div class="sv">${correctCount} / ${totalQ}</div></div>
+            <div class="stat-card"><div class="sl">Точность</div><div class="sv">${Math.round(pct * 100)}%</div></div>
+            <div class="stat-card"><div class="sl">Макс. балл</div><div class="sv">${maxScore}</div></div>
+          </div>
+          <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+            <button class="btn btn-ghost" style="font-size:14px;padding:12px 24px;" onclick="goToMenu()">← В меню</button>
+            <button class="btn btn-confirm" style="font-size:14px;padding:12px 28px;display:inline-block;" onclick="resetGame()">Сыграть снова</button>
+          </div>
+        `;
+              result.classList.add("show");
+            }
+
+            function resetGame() {
+              score = 0;
+              correctCount = 0;
+              totalAnswered = 0;
+              activeQ.forEach((cat) => cat.forEach((q) => delete q.used));
+              updateStats();
+              document.getElementById("board").style.display = "grid";
+              document.querySelector(".scorebar").style.display = "flex";
+              document.getElementById("result").classList.remove("show");
+              document.getElementById("result").innerHTML = "";
+              renderBoard();
+            }
+    </script>
+  </body>
 </html>
